@@ -19,4 +19,5 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 ### Changed
 
 - Reworked the shared specular response as a smooth glass clear coat and moved the fixed key light roughly 45° toward the lower side of the surface.
-- Exposed clear-coat intensity, roughness, bloom, and Fresnel as live-updating component props.
+- Exposed surface-specular intensity, roughness, bloom, and Fresnel as live-updating component props.
+- Unified specular lighting with each material's perturbed surface normal so prism facets and rim bump directly shape the highlight instead of carrying a separate smooth top coat.

@@ -81,7 +81,7 @@ export default function Home(){
      </div>
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
      <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
-     <div className="control-group specular-controls"><span className="control-label">Glass specular</span>
+     <div className="control-group specular-controls"><span className="control-label">Surface specular</span>
       <label className="range-field"><span>Intensity <b>{specularIntensity.toFixed(2)}</b></span><input type="range" min="0" max="3" step="0.05" value={specularIntensity} onChange={e=>setSpecularIntensity(Number(e.target.value))}/></label>
       <label className="range-field"><span>Roughness <b>{specularRoughness.toFixed(3)}</b></span><input type="range" min="0.025" max="0.3" step="0.005" value={specularRoughness} onChange={e=>setSpecularRoughness(Number(e.target.value))}/></label>
       <label className="range-field"><span>Bloom <b>{specularBloom.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularBloom} onChange={e=>setSpecularBloom(Number(e.target.value))}/></label>
@@ -127,8 +127,8 @@ export default function Home(){
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
-      ["specularIntensity","number","1","Clear-coat highlight energy, clamped from 0 to 3."],
-      ["specularRoughness","number","0.06","Clear-coat lobe width, clamped from 0.025 to 0.3."],
+      ["specularIntensity","number","1","Surface highlight energy, clamped from 0 to 3."],
+      ["specularRoughness","number","0.06","Surface specular lobe width, clamped from 0.025 to 0.3."],
       ["specularBloom","number","0.14","Soft blue-white halo around the highlight, clamped from 0 to 1."],
       ["specularFresnel","number","0.22","How strongly the coat brightens toward grazing angles, clamped from 0 to 1."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}

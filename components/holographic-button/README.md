@@ -81,14 +81,14 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `children` | `ReactNode` | `ACTIVATE` | Main button content. |
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
-| `specularIntensity` | `number` | `1` | Clear-coat highlight energy, clamped to `0–3`. |
-| `specularRoughness` | `number` | `0.06` | Clear-coat lobe width, clamped to `0.025–0.3`. |
+| `specularIntensity` | `number` | `1` | Surface highlight energy, clamped to `0–3`. |
+| `specularRoughness` | `number` | `0.06` | Surface specular lobe width, clamped to `0.025–0.3`. |
 | `specularBloom` | `number` | `0.14` | Soft blue-white highlight halo, clamped to `0–1`. |
 | `specularFresnel` | `number` | `0.22` | Grazing-angle reflection strength, clamped to `0–1`. |
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission.
 
-Specular props are uploaded as WebGL uniforms on the existing animation loop, so live changes do not recreate the WebGL program.
+Specular props are uploaded as WebGL uniforms on the existing animation loop, so live changes do not recreate the WebGL program. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat.
 
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, and `facet-chrome`.
 
