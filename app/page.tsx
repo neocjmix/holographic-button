@@ -54,7 +54,7 @@ export default function Home(){
   <section className="hero-section" id="top">
    <div className="hero-copy">
     <p className="kicker"><span>REACT / WEBGL</span> WORLD-LIT INTERFACE MATERIAL</p>
-    <h1>A button that<br/>changes with <i>your angle.</i></h1>
+    <h1>A button that<br/><i>catches the light.</i></h1>
     <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
     <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
     <div className="hero-facts"><span>MIT LICENSE</span><span>4 MATERIALS</span><span>REACT 18+</span><span>NO HUMAN REVIEW</span></div>
