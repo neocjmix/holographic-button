@@ -19,3 +19,4 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 ### Changed
 
 - Reworked the shared specular response as a smooth glass clear coat and moved the fixed key light roughly 45° toward the lower side of the surface.
+- Exposed clear-coat intensity, roughness, bloom, and Fresnel as live-updating component props.
