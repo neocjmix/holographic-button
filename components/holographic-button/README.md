@@ -107,6 +107,21 @@ Use `width`, `height`, `className`, and `style` for layout. The silhouette is in
 
 Modern browsers with WebGL 1 and React 18.2 or newer. Device orientation requires HTTPS and may be limited by browser or embedded-webview policy.
 
+## Releasing
+
+The `Publish Holographic Button` GitHub Actions workflow runs when a SemVer tag matching `v*.*.*` is pushed. It requires the tag version to match `package.json`, verifies that the tagged commit belongs to `master`, installs locked dependencies, typechecks, builds, inspects the package tarball, publishes to npm, and then creates a GitHub Release with generated notes.
+
+For a normal release, run from this package directory with a clean worktree:
+
+```bash
+npm version patch # or: minor / major
+git push origin master --follow-tags
+```
+
+Do not create the GitHub Release manually; the workflow creates it only after npm publication succeeds. Re-running a tag whose npm version or GitHub Release already exists is safe because those operations are skipped.
+
+The first-ever npm publish requires a granular npm automation token stored as the repository secret `NPM_TOKEN`. After the package exists, configure npm Trusted Publishing for GitHub Actions with owner `neocjmix`, repository `neocjmix.github.io`, and workflow filename `publish-holographic-button.yml`; then delete `NPM_TOKEN`. Subsequent publishes use short-lived OIDC credentials and automatic provenance.
+
 ## Credits
 
 Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.com/luciascarlet/status/1930614317541474598). Shader, interaction model, and React implementation by ChanJin Park.
