@@ -22,7 +22,7 @@ function surfaceNormal(m:Float32Array):[number,number,number]{return[m[6],m[7],m
 const VS="attribute vec2 position;varying vec2 uv;void main(){uv=position*.5+.5;gl_Position=vec4(position,0.,1.);}";
 const FS=[
 "#extension GL_OES_standard_derivatives : enable",
-"precision highp float;varying vec2 uv;uniform vec2 resolution;uniform mat3 worldFromDevice;uniform float time;uniform vec4 material;",
+"precision highp float;varying vec2 uv;uniform vec2 resolution;uniform mat3 worldFromDevice;uniform float time;uniform vec4 material;uniform float method;",
 "float sdRoundRect(vec2 p,vec2 b,float r){vec2 q=abs(p)-b+r;return min(max(q.x,q.y),0.)+length(max(q,0.))-r;}",
 "float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}",
 "float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}",
@@ -39,24 +39,25 @@ const FS=[
 "void main(){",
 " vec2 p=uv-.5;float aspect=resolution.x/resolution.y;p.x*=aspect;",
 " float d=sdRoundRect(p,vec2(aspect*.488,.465),.43);float aa=max(fwidth(d)*1.5,.0015);float alpha=1.-smoothstep(-aa,aa,d);if(alpha<.01)discard;",
-" vec2 grad=normalize(vec2(dFdx(d),dFdy(d))+vec2(.00001));float inward=max(-d,0.);float edge=1.-smoothstep(0.,.12,inward);",
+" vec2 grad=normalize(vec2(dFdx(d),dFdy(d))+vec2(.00001));float inward=max(-d,0.);",
 " float ringMask=1.-smoothstep(.095,.12,inward);float ringPhase=clamp(inward/.095,0.,1.)*6.28318;",
-" float ringHeight=sin(ringPhase)*ringMask;float ringSlope=cos(ringPhase)*ringMask;",
+" float ringHeight=-sin(ringPhase)*ringMask;float ringSlope=-cos(ringPhase)*ringMask;",
 " float grain=noise(uv*vec2(720.,115.));float brush=sin(uv.x*1380.+noise(uv*vec2(7.,29.))*8.);",
-" vec2 micro=vec2(dFdx(grain),dFdy(grain))*.16+vec2(brush*.006,sin(uv.x*71.+uv.y*23.)*.004);",
-" vec3 n=normalize(vec3(grad*(edge*.28+ringSlope*.74)+micro,mix(1.,.52,abs(ringSlope)*ringMask)));vec3 nw=normalize(worldFromDevice*n);",
+" vec2 micro=vec2(0.);if(method>.5&&method<1.5)micro=vec2(brush*.010,dFdy(grain)*.08);",
+" if(method>1.5&&method<2.5)micro=vec2(dFdx(noise(uv*vec2(16.,9.))),dFdy(noise(uv*vec2(16.,9.))))*.035;",
+" vec2 cell=floor(uv*vec2(24.,7.));if(method>2.5)micro=(vec2(hash(cell),hash(cell+7.31))-.5)*.075;",
+" vec3 shapeN=normalize(vec3(p.x*.18,p.y*.38,1.));vec3 n=normalize(vec3(shapeN.xy+grad*ringSlope*.78+micro,1.-abs(ringHeight)*.18));vec3 nw=normalize(worldFromDevice*n);",
 " vec3 v=vec3(0,0,1),vw=normalize(worldFromDevice*v),rw=normalize(reflect(-vw,nw));",
 " vec3 light=normalize(vec3(-.34,.78,.52)),light2=normalize(vec3(.72,-.12,.68));",
 " float ndl=max(dot(nw,light),0.),ndl2=max(dot(nw,light2),0.),ndv=max(dot(nw,vw),.001);",
 " vec3 h=normalize(light+vw);float spec=ggx(max(dot(nw,h),0.),mix(material.z,material.z+.11,grain))*ndl;",
 " float fresnel=.18+.82*pow(1.-ndv,5.);vec3 env=environment(rw);",
-" float incidence=dot(nw,light);float diffraction=dot(rw,normalize(vec3(.73,.21,.65)))*(2.1+material.w*1.4)+incidence*1.85+material.x;",
-" diffraction+=sin(uv.y*94.+noise(uv*vec2(13.,8.))*4.)*.07;",
-" vec3 holo=spectrum(diffraction);float holoMask=smoothstep(.05,.72,1.-abs(incidence))*(.38+.34*grain)*material.y;",
-" vec3 metal=env*(.78+fresnel*.9)+vec3(spec)*1.65+ndl2*vec3(.10,.035,.055);",
-" vec3 tint=mix(vec3(.94,.96,1.02),spectrum(material.x+.18)*.34+vec3(.73),.32);metal*=tint;",
-" metal=mix(metal,metal*.56+holo*(.46+material.y*.18),holoMask);",
-" float foilFold=pow(.5+.5*sin(uv.y*43.+noise(uv*vec2(4.,19.))*6.),18.);metal+=foilFold*holo*.13;",
+" float incidence=dot(nw,light);vec3 metal;",
+" if(method<.5){float sweep=dot(rw,normalize(vec3(.76,.18,.62)))*.58+rw.y*.16+.08;vec3 film=spectrum(sweep);metal=env*.46+film*(.68+fresnel*.42)+vec3(spec)*.72;}",
+" else if(method<1.5){float streak=.5+.5*sin(uv.x*920.+noise(uv*vec2(8.,37.))*5.);float glint=pow(streak,18.);vec3 petrol=vec3(.018,.055,.068)+spectrum(dot(rw,normalize(vec3(.82,.08,.56)))*1.72+.46)*.24;metal=env*.72+petrol*(.52+.34*ndl)+glint*spectrum(uv.x*.4+incidence)*.34+vec3(spec)*1.12;}",
+" else if(method<2.5){float optical=(1.-abs(incidence))*1.58+noise(uv*vec2(5.,3.))*.07+.18;vec3 pearl=.72+.20*cos(6.28318*(optical*vec3(1.,1.29,1.61)+vec3(.02,.24,.51)));metal=env*.31+pearl*(.64+fresnel*.48)+vec3(spec)*.58;}",
+" else{float facet=hash(cell);float band=dot(rw,normalize(vec3(.67,.29,.68)))*3.15+facet*.18;vec3 prism=spectrum(band);float ribbon=.42+.58*pow(.5+.5*cos(6.28318*band),5.);metal=env*1.02+prism*(.48+.62*ribbon)+vec3(spec)*1.48;}",
+" vec3 shapeNW=normalize(worldFromDevice*shapeN);float shapeNdL=max(dot(shapeNW,light),0.);float bodySpec=min(ggx(max(dot(shapeNW,h),0.),.16)*shapeNdL*.075,2.4);float softSpec=pow(max(dot(shapeNW,h),0.),26.)*.34;metal+=vec3(bodySpec+softSpec)+ndl2*vec3(.075,.025,.045);",
 " float raised=max(ringHeight,0.),recessed=max(-ringHeight,0.);metal+=raised*(environment(rw)*1.25+vec3(.13));",
 " metal*=1.-recessed*.34;metal+=pow(max(ringSlope,0.),6.)*vec3(.28,.3,.33);",
 " float vignette=1.-dot(uv-.5,uv-.5)*.34;metal*=vignette;metal=metal/(metal+vec3(.78));",
@@ -67,7 +68,7 @@ function compile(gl:WebGLRenderingContext,type:number,source:string){
  const s=gl.createShader(type)!;gl.shaderSource(s,source);gl.compileShader(s);
  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s)||"Shader compile failed");return s;
 }
-function ReflectiveButton({matrix,onClick,label,index,material}:{matrix:React.RefObject<Float32Array>;onClick:()=>void;label:string;index:string;material:[number,number,number,number]}){
+function ReflectiveButton({matrix,onClick,label,index,material,method}:{matrix:React.RefObject<Float32Array>;onClick:()=>void;label:string;index:string;material:[number,number,number,number];method:number}){
  const canvas=useRef<HTMLCanvasElement>(null),[error,setError]=useState(false);
  useEffect(()=>{const c=canvas.current;if(!c)return;let raf=0;
   try{const gl=c.getContext("webgl",{alpha:true,antialias:true,premultipliedAlpha:true});if(!gl){setError(true);return}
@@ -76,10 +77,10 @@ function ReflectiveButton({matrix,onClick,label,index,material}:{matrix:React.Re
    if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||"Program link failed");gl.useProgram(program);
    const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
    const pos=gl.getAttribLocation(program,"position");gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-   const uRes=gl.getUniformLocation(program,"resolution"),uWorld=gl.getUniformLocation(program,"worldFromDevice"),uTime=gl.getUniformLocation(program,"time"),uMaterial=gl.getUniformLocation(program,"material");
+   const uRes=gl.getUniformLocation(program,"resolution"),uWorld=gl.getUniformLocation(program,"worldFromDevice"),uTime=gl.getUniformLocation(program,"time"),uMaterial=gl.getUniformLocation(program,"material"),uMethod=gl.getUniformLocation(program,"method");
    const draw=(now:number)=>{const r=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));
     if(c.width!==w||c.height!==h){c.width=w;c.height=h;gl.viewport(0,0,w,h)}gl.uniform2f(uRes,w,h);gl.uniformMatrix3fv(uWorld,false,matrix.current);
-    gl.uniform1f(uTime,now*.001);gl.uniform4f(uMaterial,material[0],material[1],material[2],material[3]);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6);raf=requestAnimationFrame(draw)};
+    gl.uniform1f(uTime,now*.001);gl.uniform4f(uMaterial,material[0],material[1],material[2],material[3]);gl.uniform1f(uMethod,method);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6);raf=requestAnimationFrame(draw)};
    raf=requestAnimationFrame(draw);return()=>cancelAnimationFrame(raf);
   }catch{setError(true)}
  },[matrix]);
@@ -136,16 +137,16 @@ export default function Home(){
   publish({permission:permission.current,signal:permission.current==="denied"?"stale":"waiting"},true);
  }catch{permission.current="denied";publish({permission:"denied",signal:"stale"},true)}};
  const variants=[
-  {label:"CHAMPAGNE / FINE FOIL",index:"01",material:[.08,.72,.11,.55] as [number,number,number,number]},
-  {label:"PETROL / BRUSHED DARK",index:"02",material:[.46,.48,.23,.82] as [number,number,number,number]},
-  {label:"PEARL / SOFT DIFFRACTION",index:"03",material:[.78,.62,.18,.32] as [number,number,number,number]},
-  {label:"PRISM / HARD CHROME",index:"04",material:[1.18,1.05,.09,1.0] as [number,number,number,number]},
+  {label:"SPECTRAL FILM / BROAD SWEEP",index:"01",method:0,material:[.08,.72,.11,.55] as [number,number,number,number]},
+  {label:"PETROL / BRUSHED FOIL",index:"02",method:1,material:[.46,.48,.23,.82] as [number,number,number,number]},
+  {label:"PEARL / THIN-FILM",index:"03",method:2,material:[.78,.62,.18,.32] as [number,number,number,number]},
+  {label:"PRISM / FACET CHROME",index:"04",method:3,material:[1.18,1.05,.09,1.0] as [number,number,number,number]},
  ];
  return <main className="lab-shell"><header><div><p className="eyebrow">OPTICAL MATERIAL STUDY <span>WEBGL / 04</span></p>
   <h1>World-Space<br/><i>Hologram</i></h1></div><p className="intro">A metallic diffraction surface.<br/>Lit by a fixed world, not an animation.</p></header>
   <section className="hero"><div className="axis-label"><span>MATERIAL VARIATIONS</span><i/></div><div className="variation-grid">
-   {variants.map(v=><article className="variation" key={v.index}><ReflectiveButton matrix={matrix} label={v.label} index={v.index} material={v.material} onClick={()=>setAlert(v.label)}/></article>)}
-  </div><div className="material-note"><span>RAISED → RECESSED RIM</span><span>GGX SPECULAR</span><span>WORLD LIGHTS</span></div>
+   {variants.map(v=><article className="variation" key={v.index}><ReflectiveButton matrix={matrix} label={v.label} index={v.index} material={v.material} method={v.method} onClick={()=>setAlert(v.label)}/></article>)}
+  </div><div className="material-note"><span>RECESSED → RAISED RIM</span><span>BODY SPECULAR</span><span>WORLD LIGHTS</span></div>
   </section><footer><span>DEVICE ATTITUDE → SURFACE NORMAL → REFLECTION VECTOR</span><span>2026</span></footer>
   <HUD data={hud} enable={enable}/>
   {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true">
