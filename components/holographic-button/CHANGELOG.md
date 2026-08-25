@@ -11,3 +11,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Native button props, form semantics, accessibility attributes, and DOM ref forwarding.
 - Responsive width and height controls with a fixed high-fidelity pill silhouette.
 - Prominent disclosure that the implementation is AI-generated and has not received human review.
+
+### Fixed
+
+- Made iOS Safari motion authorization recover existing permission on entry and retry safely on tap when WebKit rejects a non-eligible gesture.

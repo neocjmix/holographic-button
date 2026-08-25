@@ -95,7 +95,7 @@ export default function Home(){
     <div className="install-steps">
      <article><span>01</span><div><h3>Import the component</h3><p>Import the stylesheet once, then create one motion hook for the buttons in that visual scene.</p></div></article>
      <article><span>02</span><div><h3>Render a real button</h3><p>Native events, form attributes, ARIA, data attributes, className, style, and ref reach the underlying element.</p></div></article>
-     <article><span>03</span><div><h3>Let input arrive</h3><p>Desktop uses pointer position. Supported phones use attitude sensors; iOS asks on the first user interaction.</p></div></article>
+     <article><span>03</span><div><h3>Let input arrive</h3><p>Desktop uses pointer position. Supported phones use attitude sensors; iOS resumes existing permission on entry or asks on the first tap.</p></div></article>
     </div>
    </div>
   </section>

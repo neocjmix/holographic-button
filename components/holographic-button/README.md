@@ -63,7 +63,7 @@ Creates the shared attitude matrix. Use one hook per visual group and pass the r
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `pointerFallback` | `boolean` | `true` | Uses pointer position when a live sensor signal is unavailable. |
-| `requestOnFirstInteraction` | `boolean` | `false` | Opts into requesting iOS motion permission on the first user gesture. |
+| `requestOnFirstInteraction` | `boolean` | `false` | Resumes existing iOS permission on entry or requests it on the first tap. |
 | `telemetry` | `boolean` | `false` | Enables reactive diagnostic updates. Leave off to avoid monitoring re-renders. |
 
 The returned object includes `telemetry` when reactive diagnostics are enabled. The library itself renders no HUD.
@@ -84,7 +84,7 @@ Variants: `spectral-film`, `brushed-foil`, `thin-film`, and `facet-chrome`.
 
 ## Motion permission
 
-Most browsers expose device attitude immediately on HTTPS. iOS Safari requires its permission request to occur during a user gesture. Set `requestOnFirstInteraction: true` only when that behavior is appropriate for your experience; the default is `false` to avoid an unexpected permission prompt. The demo opts in and asks on its first interaction instead of showing a separate enable button. Until sensor events arrive, pointer movement drives the same world-space reflection model. Sensor values remain in memory and are not transmitted or persisted by the library.
+Most browsers expose device attitude immediately on HTTPS. iOS Safari requires a user gesture before it can show a new permission prompt. Set `requestOnFirstInteraction: true` only when that behavior is appropriate for your experience; the default is `false` to avoid an unexpected permission prompt. The demo opts in: an existing decision is restored on entry, while a new prompt appears on the first tap without a separate enable button. If Safari rejects a request because the gesture was not eligible, the hook remains ready to retry on the next tap. Until sensor events arrive, pointer movement drives the same world-space reflection model. Sensor values remain in memory and are not transmitted or persisted by the library.
 
 ## Accessibility and fallbacks
 
