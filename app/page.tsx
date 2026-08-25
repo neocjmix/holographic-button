@@ -4,11 +4,11 @@ import {useMemo,useState} from "react";
 import {HolographicButton,type HolographicVariant,useHolographicMotion} from "@neocjmix/holographic-button";
 
 const PACKAGE="@neocjmix/holographic-button";
-const variants:{value:HolographicVariant;label:string;note:string;eyebrow:string}[]=[
- {value:"spectral-film",label:"Spectral",note:"Broad rainbow sweep",eyebrow:"BROAD SWEEP"},
- {value:"brushed-foil",label:"Brushed",note:"Directional metal grain",eyebrow:"BRUSHED FOIL"},
- {value:"thin-film",label:"Pearl",note:"Clean thin-film gradient",eyebrow:"THIN-FILM"},
- {value:"facet-chrome",label:"Prism",note:"Fragmented chrome facets",eyebrow:"FACET CHROME"},
+const variants:{value:HolographicVariant;label:string;note:string}[]=[
+ {value:"spectral-film",label:"Spectral",note:"Broad rainbow sweep"},
+ {value:"brushed-foil",label:"Brushed",note:"Directional metal grain"},
+ {value:"thin-film",label:"Pearl",note:"Clean thin-film gradient"},
+ {value:"facet-chrome",label:"Prism",note:"Fragmented chrome facets"},
 ];
 const installCommands={npm:"npm install "+PACKAGE,pnpm:"pnpm add "+PACKAGE,yarn:"yarn add "+PACKAGE,bun:"bun add "+PACKAGE};
 
@@ -23,11 +23,9 @@ function CodeBlock({code,label}:{code:string;label:string}){
 }
 
 export default function Home(){
- const motion=useHolographicMotion();
+ const motion=useHolographicMotion({requestOnFirstInteraction:true});
  const[variant,setVariant]=useState<HolographicVariant>("spectral-film");
  const[label,setLabel]=useState("ACTIVATE");
- const[eyebrow,setEyebrow]=useState("BROAD SWEEP");
- const[badge,setBadge]=useState("01");
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
  const[disabled,setDisabled]=useState(false);
@@ -37,18 +35,19 @@ export default function Home(){
   '"use client";','',
   'import {','  HolographicButton,','  useHolographicMotion,','} from "'+PACKAGE+'";',
   'import "'+PACKAGE+'/styles.css";','',
-  'export function CTA() {','  const motion = useHolographicMotion();','',
+  'export function CTA() {','  const motion = useHolographicMotion({','    requestOnFirstInteraction: true,','  });','',
   '  return (','    <HolographicButton','      motion={motion}','      variant="'+variant+'"',
-  '      width="min(100%, '+width+'px)"','      height={'+height+'}','      eyebrow="'+eyebrow+'"','      badge="'+badge+'"',
+  '      width="min(100%, '+width+'px)"','      height={'+height+'}',
   disabled?'      disabled':'',
   '      onClick={() => alert("Activated")}','    >','      '+label,'    </HolographicButton>','  );','}'
- ].filter(Boolean).join("\n"),[variant,width,height,eyebrow,badge,disabled,label]);
+ ].filter(Boolean).join("\n"),[variant,width,height,disabled,label]);
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
    <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v0.1.0</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. Treat v0.1.0 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -56,11 +55,11 @@ export default function Home(){
     <h1>A button that<br/>reflects <i>the room.</i></h1>
     <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
     <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
-    <div className="hero-facts"><span>MIT LICENSE</span><span>4 MATERIALS</span><span>REACT 18+</span><span>WEBGL 1</span></div>
+    <div className="hero-facts"><span>MIT LICENSE</span><span>4 MATERIALS</span><span>REACT 18+</span><span>NO HUMAN REVIEW</span></div>
    </div>
    <div className="hero-object">
     <p>LIVE MATERIAL <span>MOVE YOUR DEVICE</span></p>
-    <HolographicButton motion={motion} variant="spectral-film" eyebrow="WORLD REFLECTION" badge="01" width="min(100%, 620px)" height={164} onClick={()=>setActivated(v=>v+1)}>ENTER</HolographicButton>
+    <HolographicButton motion={motion} variant="spectral-film" width="min(100%, 620px)" height={164} onClick={()=>setActivated(v=>v+1)}>ENTER</HolographicButton>
     <small>{activated?"ACTIVATED × "+activated:"NATIVE BUTTON · TAP TO TEST"}</small>
    </div>
   </section>
@@ -69,11 +68,9 @@ export default function Home(){
    <div className="section-intro"><p className="section-index">01 / PLAYGROUND</p><h2>Tune it in place.</h2><p>Change the public props and copy the exact React code. Sensor input is automatic; desktop pointer movement uses the same reflection model.</p></div>
    <div className="playground-grid">
     <div className="control-panel">
-     <div className="control-group"><span className="control-label">Material</span><div className="segment-grid">{variants.map(item=><button key={item.value} className={variant===item.value?"selected":""} onClick={()=>{setVariant(item.value);setEyebrow(item.eyebrow)}}><b>{item.label}</b><small>{item.note}</small></button>)}</div></div>
+     <div className="control-group"><span className="control-label">Material</span><div className="segment-grid">{variants.map(item=><button key={item.value} className={variant===item.value?"selected":""} onClick={()=>setVariant(item.value)}><b>{item.label}</b><small>{item.note}</small></button>)}</div></div>
      <div className="field-grid">
       <label><span>Label</span><input value={label} maxLength={18} onChange={e=>setLabel(e.target.value)}/></label>
-      <label><span>Eyebrow</span><input value={eyebrow} maxLength={22} onChange={e=>setEyebrow(e.target.value)}/></label>
-      <label><span>Badge</span><input value={badge} maxLength={6} onChange={e=>setBadge(e.target.value)}/></label>
       <label className="toggle-field"><span>Disabled</span><button type="button" role="switch" aria-checked={disabled} className={disabled?"on":""} onClick={()=>setDisabled(v=>!v)}><i/></button></label>
      </div>
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
@@ -81,7 +78,7 @@ export default function Home(){
     </div>
     <div className="live-stage">
      <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>
-     <HolographicButton motion={motion} variant={variant} eyebrow={eyebrow||undefined} badge={badge||undefined} width={"min(100%, "+width+"px)"} height={height} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
+     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
      <p>{disabled?"DISABLED · NATIVE STATE":activated?"EVENT RECEIVED × "+activated:"CLICK, TAP, FOCUS, OR SUBMIT LIKE A BUTTON"}</p>
     </div>
    </div>
@@ -105,7 +102,7 @@ export default function Home(){
 
   <section className="materials section-frame" id="materials">
    <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Four optical models.</h2><p>Each variant changes how the surface is described, not just its palette.</p></div>
-   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} eyebrow={item.eyebrow} badge={"0"+(index+1)} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
+   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
   <section className="api section-frame" id="api">
@@ -116,8 +113,6 @@ export default function Home(){
       ["motion","HolographicMotion","required","Shared matrix from the hook."],
       ["variant","HolographicVariant","spectral-film","One of four optical surfaces."],
       ["children","ReactNode","ACTIVATE","Visible primary content."],
-      ["eyebrow","ReactNode","—","Small upper-left label."],
-      ["badge","ReactNode","—","Small right-side metadata."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}

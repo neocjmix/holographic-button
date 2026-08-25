@@ -4,6 +4,9 @@ A physically directed holographic WebGL button for React. Its reflective surface
 
 [Live demo](https://neocjmix.github.io/holographic-cta-lab/) · [Source](https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react) · MIT
 
+> [!WARNING]
+> This implementation and its documentation were generated entirely by AI and have not received human code review. Treat v0.x as experimental, inspect the source, and perform your own security and accessibility review before production use.
+
 ## Features
 
 - Four distinct optical models rather than one shader with color presets.
@@ -31,7 +34,9 @@ import {
 import "@neocjmix/holographic-button/styles.css";
 
 export function CTA() {
-  const motion = useHolographicMotion();
+  const motion = useHolographicMotion({
+    requestOnFirstInteraction: true,
+  });
 
   return (
     <HolographicButton
@@ -39,8 +44,6 @@ export function CTA() {
       variant="spectral-film"
       width="min(100%, 560px)"
       height={148}
-      eyebrow="BROAD SWEEP"
-      badge="01"
       onClick={() => alert("Activated")}
     >
       ACTIVATE
@@ -60,7 +63,7 @@ Creates the shared attitude matrix. Use one hook per visual group and pass the r
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
 | `pointerFallback` | `boolean` | `true` | Uses pointer position when a live sensor signal is unavailable. |
-| `requestOnFirstInteraction` | `boolean` | `true` | Requests iOS motion permission on the first user gesture. |
+| `requestOnFirstInteraction` | `boolean` | `false` | Opts into requesting iOS motion permission on the first user gesture. |
 | `telemetry` | `boolean` | `false` | Enables reactive diagnostic updates. Leave off to avoid monitoring re-renders. |
 
 The returned object includes `telemetry` when reactive diagnostics are enabled. The library itself renders no HUD.
@@ -72,8 +75,6 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `motion` | `HolographicMotion` | required | Shared motion object returned by the hook. |
 | `variant` | `HolographicVariant` | `spectral-film` | Optical surface model. |
 | `children` | `ReactNode` | `ACTIVATE` | Main button content. |
-| `eyebrow` | `ReactNode` | — | Small upper-left material label. |
-| `badge` | `ReactNode` | — | Small right-side badge. |
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
 
@@ -83,7 +84,7 @@ Variants: `spectral-film`, `brushed-foil`, `thin-film`, and `facet-chrome`.
 
 ## Motion permission
 
-Most browsers expose device attitude immediately on HTTPS. iOS Safari requires its permission request to occur during a user gesture, so the hook asks on the first interaction instead of showing a separate enable button. Until sensor events arrive, pointer movement drives the same world-space reflection model.
+Most browsers expose device attitude immediately on HTTPS. iOS Safari requires its permission request to occur during a user gesture. Set `requestOnFirstInteraction: true` only when that behavior is appropriate for your experience; the default is `false` to avoid an unexpected permission prompt. The demo opts in and asks on its first interaction instead of showing a separate enable button. Until sensor events arrive, pointer movement drives the same world-space reflection model. Sensor values remain in memory and are not transmitted or persisted by the library.
 
 ## Accessibility and fallbacks
 
