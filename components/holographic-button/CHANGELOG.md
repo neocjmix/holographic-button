@@ -15,3 +15,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 ### Fixed
 
 - Made iOS Safari motion authorization recover existing permission on entry and retry safely on tap when WebKit rejects a non-eligible gesture.
+
+### Changed
+
+- Tightened the shared specular response into a cleaner, environment-tinted metallic highlight with substantially less grain-driven roughness.
