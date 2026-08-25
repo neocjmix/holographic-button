@@ -33,10 +33,11 @@ footer{margin-top:clamp(55px,8vw,100px);padding-top:20px;border-top:1px solid #2
 #modal{position:fixed;inset:0;z-index:50;background:#020306c8;backdrop-filter:blur(18px);display:none;place-items:center;padding:24px}#modal.show{display:grid}
 .alert{width:min(440px,100%);padding:34px;border:1px solid #3b3d48;border-radius:28px;background:radial-gradient(circle at 50% 0,#835fff29,transparent 46%),#101116;text-align:center;box-shadow:0 40px 100px #000}
 .check{width:50px;height:50px;margin:0 auto 24px;border-radius:50%;display:grid;place-items:center;color:#050608;font-size:22px;background:linear-gradient(135deg,#f6c8ff,#7effdc)}.alert small{color:#9b8cff;font:700 9px ui-monospace,monospace;letter-spacing:.18em}.alert h2{font-size:34px;margin:10px 0}.alert p{color:#92949d;font-size:14px;line-height:1.6}.alert button{width:100%;height:50px;margin-top:20px;border:1px solid #3c3e49;border-radius:14px;background:#18191f;color:#fff;font:700 11px ui-monospace,monospace;letter-spacing:.16em}
-#hud{position:fixed;z-index:30;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));width:278px;padding:13px 14px 14px;border:1px solid #9b8bff47;border-radius:16px;background:#090a0fd9;box-shadow:0 18px 55px #0008;backdrop-filter:blur(18px);font-family:ui-monospace,monospace;pointer-events:none}
+#hud{position:fixed;z-index:30;right:max(14px,env(safe-area-inset-right));bottom:max(14px,env(safe-area-inset-bottom));width:278px;padding:13px 14px 14px;border:1px solid #9b8bff47;border-radius:16px;background:#090a0fd9;box-shadow:0 18px 55px #0008;backdrop-filter:blur(18px);font-family:ui-monospace,monospace}
 .hh{height:21px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #292a32;margin-bottom:10px;padding-bottom:9px}.hh b{font-size:9px;letter-spacing:.13em}.hh em{margin-left:auto;font-size:8px;font-style:normal;letter-spacing:.1em;color:#d9ad62}.led{width:7px;height:7px;border-radius:50%;background:#d9ad62;box-shadow:0 0 10px #d9ad62}
 #hud.live .led{background:#72ffd1;box-shadow:0 0 11px #72ffd1}#hud.live .hh em{color:#72ffd1}#hud.stale .led{background:#ff675c;box-shadow:0 0 9px #ff675c}#hud.stale .hh em{color:#ff8077}
 .hg{display:grid;grid-template-columns:1fr auto 1fr auto;gap:7px 9px;align-items:baseline}.hg span{font-size:7px;letter-spacing:.08em;color:#62656f}.hg strong{font-size:9px;color:#e2e0e7;text-align:right;font-variant-numeric:tabular-nums;text-transform:uppercase}
+.hm{width:100%;height:38px;margin-top:12px;border:1px solid #9b8bff73;border-radius:10px;background:linear-gradient(#7f67ff38,#5642b21f);color:#eeeaff;font:700 9px ui-monospace,monospace;letter-spacing:.13em}.hm span{margin-right:9px;color:#9e8aff}.hm:active{background:#7160c955;transform:translateY(1px)}
 @media(max-width:700px){main{padding:26px 18px 210px}header{align-items:flex-start;margin-bottom:48px}h1{font-size:55px}.tools{flex-direction:column;align-items:flex-end}.tools p{text-align:right}.row{grid-template-columns:1fr;gap:10px}.label{width:92px;height:18px}.stage{height:100px}.stack{gap:34px}.copy b{font-size:20px}footer span:nth-child(2){display:none}#hud{left:14px;right:14px;bottom:max(10px,env(safe-area-inset-bottom));width:auto}}
 </style>
 </head>
@@ -62,7 +63,7 @@ footer{margin-top:clamp(55px,8vw,100px);padding-top:20px;border-top:1px solid #2
 <span>GAMMA</span><strong id="gamma">—</strong><span>SCREEN</span><strong id="angle">0°</strong>
 <span>OUTPUT X</span><strong id="outx">0.000</strong><span>OUTPUT Y</span><strong id="outy">0.000</strong>
 <span>LAST EVENT</span><strong id="age">—</strong><span>HTTPS</span><strong id="secure">—</strong>
-</div></aside><div id="modal"><div class="alert" role="alertdialog" aria-modal="true"><div class="check">✓</div><small>INTERACTION CONFIRMED</small><h2 id="message">It is alive.</h2><p>The holographic surface responded as a real CTA button.</p><button id="close">CLOSE ×</button></div></div>
+</div><button class="hm" id="hudMotion"><span>◉</span>ENABLE MOTION</button></aside><div id="modal"><div class="alert" role="alertdialog" aria-modal="true"><div class="check">✓</div><small>INTERACTION CONFIRMED</small><h2 id="message">It is alive.</h2><p>The holographic surface responded as a real CTA button.</p><button id="close">CLOSE ×</button></div></div>
 <script>
 const root=document.documentElement,target={x:0,y:0},state={x:0,y:0},base={beta:null,gamma:null};
 let motion=false,permission="idle",source="none",count=0,first=0,last=0,lastOrientation=0,raw={alpha:null,beta:null,gamma:null};
@@ -87,13 +88,14 @@ function orient(e){if(typeof e.beta==="number"&&typeof e.gamma==="number")consum
 function motionFallback(e){if(performance.now()-lastOrientation<600)return;const g=e.accelerationIncludingGravity;if(!g||typeof g.x!=="number"||typeof g.y!=="number"||typeof g.z!=="number")return;
  const gamma=Math.atan2(g.x,Math.hypot(g.y,g.z))*180/Math.PI,beta=Math.atan2(-g.y,g.z)*180/Math.PI;consume(beta,gamma,null,"motion")}
 addEventListener("deviceorientation",orient,true);addEventListener("deviceorientationabsolute",orient,true);addEventListener("devicemotion",motionFallback,true);
-el("motion").onclick=async function(){if(motion){base.beta=base.gamma=null;target.x=target.y=0;this.textContent="RECENTER";return}
+async function requestMotion(){const buttons=[el("motion"),el("hudMotion")];if(motion){base.beta=base.gamma=null;target.x=target.y=0;buttons.forEach(b=>b.innerHTML="<span>↺</span>RECENTER");return}
  permission="requesting";paintHud();try{const requests=[];
   if(typeof window.DeviceOrientationEvent?.requestPermission==="function")requests.push(window.DeviceOrientationEvent.requestPermission());
   if(typeof window.DeviceMotionEvent?.requestPermission==="function")requests.push(window.DeviceMotionEvent.requestPermission());
   const result=requests.length?await Promise.all(requests):["granted"];
-  if(result.some(v=>v==="granted")){permission="granted";base.beta=base.gamma=null;this.textContent="RECENTER";this.classList.add("live")}
-  else{permission="denied";this.textContent="TRY MOTION AGAIN"}}catch(e){permission="denied";this.textContent="TRY MOTION AGAIN"}paintHud()};
+  if(result.some(v=>v==="granted")){permission="granted";base.beta=base.gamma=null;buttons.forEach(b=>{b.innerHTML="<span>↺</span>RECENTER";b.classList.add("live")})}
+  else{permission="denied";buttons.forEach(b=>b.textContent="TRY MOTION AGAIN")}}catch(e){permission="denied";buttons.forEach(b=>b.textContent="TRY MOTION AGAIN")}paintHud()}
+el("motion").onclick=requestMotion;el("hudMotion").onclick=requestMotion;
 document.querySelectorAll(".stage").forEach(b=>b.onclick=()=>{document.querySelector("#message").textContent=b.dataset.kind+" is alive.";document.querySelector("#modal").classList.add("show")});
 document.querySelector("#close").onclick=()=>document.querySelector("#modal").classList.remove("show");document.querySelector("#modal").onclick=e=>{if(e.target.id==="modal")e.currentTarget.classList.remove("show")};
 const c=document.querySelector("#c2"),x=c.getContext("2d");

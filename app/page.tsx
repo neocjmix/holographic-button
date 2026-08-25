@@ -96,7 +96,7 @@ type SensorHud={
 };
 const number=(n:number|null,digits=1)=>n===null?"—":n.toFixed(digits);
 
-function SensorHUD({data}:{data:SensorHud}){
+function SensorHUD({data,onEnable,active}:{data:SensorHud;onEnable:()=>void;active:boolean}){
  return <aside className={"sensor-hud "+data.signal} aria-live="polite">
   <div className="hud-head"><span className="hud-led"/><b>SENSOR INPUT</b><em>{data.signal==="live"?"RECEIVING":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em></div>
   <div className="hud-grid">
@@ -107,6 +107,7 @@ function SensorHUD({data}:{data:SensorHud}){
    <span>OUTPUT X</span><strong>{data.x.toFixed(3)}</strong><span>OUTPUT Y</span><strong>{data.y.toFixed(3)}</strong>
    <span>LAST EVENT</span><strong>{data.age===null?"—":data.age+" ms"}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
   </div>
+  <button className="hud-motion" onClick={onEnable}><span>{active?"↺":"◉"}</span>{active?"RECENTER":"ENABLE MOTION"}</button>
  </aside>;
 }
 
@@ -194,5 +195,5 @@ export default function Home(){
   {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
    <div className="alert-icon">✓</div><p className="alert-kicker">INTERACTION CONFIRMED</p><h2 id="alert-title">{alert} is alive.</h2>
    <p>The holographic surface responded as a real CTA button.</p><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button>
-  </div></div>}<SensorHUD data={hud}/></main>;
+  </div></div>}<SensorHUD data={hud} onEnable={enable} active={motion==="active"}/></main>;
 }
