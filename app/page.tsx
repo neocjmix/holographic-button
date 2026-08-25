@@ -126,6 +126,6 @@ export default function Home(){
    <p>READY FOR A LITTLE TOO MUCH BUTTON?</p><h2>Give the interface<br/><i>a surface.</i></h2><a href="#install">Install {PACKAGE} <span>↗</span></a>
   </section>
 
-  <footer><div><span className="brand-mark"/><b>Holographic Button</b><small>MIT © 2026 ChanJin Park</small></div><p>Inspired by <a href="https://dribbble.com/shots/25057911-Holographic-CTA" target="_blank" rel="noreferrer">Rthwik Gopinath’s Holographic CTA ↗</a></p><div><a href="#top">Top ↑</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+  <footer><div><span className="brand-mark"/><b>Holographic Button</b><small>MIT © 2026 ChanJin Park</small></div><p>Inspired by <a href="https://x.com/luciascarlet/status/1930614317541474598" target="_blank" rel="noreferrer">Lucia Scarlet’s holographic controls ↗</a></p><div><a href="#top">Top ↑</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
  </main>;
 }

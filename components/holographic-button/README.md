@@ -103,7 +103,7 @@ Modern browsers with WebGL 1 and React 18.2 or newer. Device orientation require
 
 ## Credits
 
-Visual direction inspired by [Rthwik Gopinath’s Holographic CTA](https://dribbble.com/shots/25057911-Holographic-CTA). Shader, interaction model, and React implementation by ChanJin Park.
+Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.com/luciascarlet/status/1930614317541474598). Shader, interaction model, and React implementation by ChanJin Park.
 
 ## License
 
