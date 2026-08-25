@@ -28,15 +28,15 @@ export default function Home(){
  const[label,setLabel]=useState("ACTIVATE");
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
- const[specularIntensity,setSpecularIntensity]=useState(1);
- const[specularSize,setSpecularSize]=useState(1);
- const[specularRoughness,setSpecularRoughness]=useState(.06);
- const[specularBloom,setSpecularBloom]=useState(.14);
- const[specularFresnel,setSpecularFresnel]=useState(.22);
- const[specularColor,setSpecularColor]=useState("#fffaf6");
- const[specularIOR,setSpecularIOR]=useState(1.5);
- const[specularAnisotropy,setSpecularAnisotropy]=useState(0);
- const[specularRotation,setSpecularRotation]=useState(0);
+ const[specularIntensity,setSpecularIntensity]=useState(1.55);
+ const[specularSize,setSpecularSize]=useState(2.55);
+ const[specularRoughness,setSpecularRoughness]=useState(.215);
+ const[specularBloom,setSpecularBloom]=useState(.12);
+ const[specularFresnel,setSpecularFresnel]=useState(.2);
+ const[specularColor,setSpecularColor]=useState("#0061fe");
+ const[specularIOR,setSpecularIOR]=useState(2.3);
+ const[specularAnisotropy,setSpecularAnisotropy]=useState(.66);
+ const[specularRotation,setSpecularRotation]=useState(90);
  const[disabled,setDisabled]=useState(false);
  const[manager,setManager]=useState<keyof typeof installCommands>("npm");
  const[activated,setActivated]=useState(0);
@@ -139,15 +139,15 @@ export default function Home(){
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
-      ["specularIntensity","number","1","All direct specular energy; 0 fully disables the highlight."],
-      ["specularSize","number","1","Highlight footprint scale, clamped from 0.25 to 3."],
-      ["specularRoughness","number","0.06","Surface specular lobe width, clamped from 0.025 to 0.3."],
-      ["specularBloom","number","0.14","Soft blue-white halo around the highlight, clamped from 0 to 1."],
-      ["specularFresnel","number","0.22","How strongly the surface brightens toward grazing angles, clamped from 0 to 1."],
-      ["specularColor","hex or RGB tuple","#fffaf6","F0 highlight tint as #RGB, #RRGGBB, or normalized RGB."],
-      ["specularIOR","number","1.5","Dielectric index of refraction, clamped from 1 to 2.5."],
-      ["specularAnisotropy","number","0","Highlight elongation, clamped from 0 to 1."],
-      ["specularAnisotropyRotation","radians","0","Direction of the elongated highlight, clamped to ±2π."],
+      ["specularIntensity","number","1.55","All direct specular energy; 0 fully disables the highlight."],
+      ["specularSize","number","2.55","Highlight footprint scale, clamped from 0.25 to 3."],
+      ["specularRoughness","number","0.215","Surface specular lobe width, clamped from 0.025 to 0.3."],
+      ["specularBloom","number","0.12","Soft blue-white halo around the highlight, clamped from 0 to 1."],
+      ["specularFresnel","number","0.20","How strongly the surface brightens toward grazing angles, clamped from 0 to 1."],
+      ["specularColor","hex or RGB tuple","#0061FE","F0 highlight tint as #RGB, #RRGGBB, or normalized RGB."],
+      ["specularIOR","number","2.30","Dielectric index of refraction, clamped from 1 to 2.5."],
+      ["specularAnisotropy","number","0.66","Highlight elongation, clamped from 0 to 1."],
+      ["specularAnisotropyRotation","radians","π/2","Direction of the elongated highlight, clamped to ±2π."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}
     </div><div className="native-strip"><b>Also forwards</b><span>on*</span><span>disabled</span><span>type / name / value / form</span><span>aria-* / data-*</span><span>className / style / ref</span></div></div>
     <div className="api-block"><h3>useHolographicMotion</h3><div className="hook-card"><code>const motion = useHolographicMotion(&#123;<br/>  pointerFallback: true,<br/>  requestOnFirstInteraction: true,<br/>  telemetry: false<br/>&#125;);</code><p>Use one instance per group. Reactive <code>telemetry</code> is opt-in, so the default path does not re-render the tree for diagnostics. The library renders no HUD.</p></div>

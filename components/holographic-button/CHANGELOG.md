@@ -26,3 +26,4 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Changed the default text label treatment from white screen blending to solid black while preserving arbitrary JSX children.
 - Made zero specular intensity disable every direct highlight contribution and added an independent highlight-size control.
 - Removed the label text shadow so the copy no longer appears engraved.
+- Promoted the tuned blue, broad anisotropic specular settings from the playground to the component defaults.

@@ -44,15 +44,15 @@ export function CTA() {
       variant="spectral-film"
       width="min(100%, 560px)"
       height={148}
-      specularIntensity={1}
-      specularSize={1}
-      specularRoughness={0.06}
-      specularBloom={0.14}
-      specularFresnel={0.22}
-      specularColor="#fffaf6"
-      specularIOR={1.5}
-      specularAnisotropy={0}
-      specularAnisotropyRotation={0}
+      specularIntensity={1.55}
+      specularSize={2.55}
+      specularRoughness={0.215}
+      specularBloom={0.12}
+      specularFresnel={0.2}
+      specularColor="#0061FE"
+      specularIOR={2.3}
+      specularAnisotropy={0.66}
+      specularAnisotropyRotation={Math.PI / 2}
       onClick={() => alert("Activated")}
     >
       ACTIVATE
@@ -86,15 +86,15 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `children` | `ReactNode` | `ACTIVATE` | Main button content. |
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
-| `specularIntensity` | `number` | `1` | All direct specular energy, clamped to `0–3`; `0` fully disables the highlight. |
-| `specularSize` | `number` | `1` | Highlight footprint scale, clamped to `0.25–3`. |
-| `specularRoughness` | `number` | `0.06` | Surface specular lobe width, clamped to `0.025–0.3`. |
-| `specularBloom` | `number` | `0.14` | Soft blue-white highlight halo, clamped to `0–1`. |
-| `specularFresnel` | `number` | `0.22` | Grazing-angle reflection strength, clamped to `0–1`. |
-| `specularColor` | `string \| readonly [number, number, number]` | `#fffaf6` | F0 tint as `#RGB`, `#RRGGBB`, or normalized RGB. |
-| `specularIOR` | `number` | `1.5` | Dielectric index of refraction, clamped to `1–2.5`. |
-| `specularAnisotropy` | `number` | `0` | Highlight elongation, clamped to `0–1`. |
-| `specularAnisotropyRotation` | `number` | `0` | Elongation direction in radians, clamped to `±2π`. |
+| `specularIntensity` | `number` | `1.55` | All direct specular energy, clamped to `0–3`; `0` fully disables the highlight. |
+| `specularSize` | `number` | `2.55` | Highlight footprint scale, clamped to `0.25–3`. |
+| `specularRoughness` | `number` | `0.215` | Surface specular lobe width, clamped to `0.025–0.3`. |
+| `specularBloom` | `number` | `0.12` | Soft blue-white highlight halo, clamped to `0–1`. |
+| `specularFresnel` | `number` | `0.2` | Grazing-angle reflection strength, clamped to `0–1`. |
+| `specularColor` | `string \| readonly [number, number, number]` | `#0061FE` | F0 tint as `#RGB`, `#RRGGBB`, or normalized RGB. |
+| `specularIOR` | `number` | `2.3` | Dielectric index of refraction, clamped to `1–2.5`. |
+| `specularAnisotropy` | `number` | `0.66` | Highlight elongation, clamped to `0–1`. |
+| `specularAnisotropyRotation` | `number` | `π/2` | Elongation direction in radians, clamped to `±2π`. |
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission. Plain text inherits the default black label treatment; `children` remains a `ReactNode`, so styled JSX, icons, and custom label structures can provide their own colors.
 
