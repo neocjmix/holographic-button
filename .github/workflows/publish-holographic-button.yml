@@ -78,9 +78,6 @@ jobs:
       - name: Publish package
         id: publish
         env:
-          # Required only for the first publish. Delete this repository secret
-          # after configuring npm Trusted Publishing for this workflow.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           PACKAGE_NAME: ${{ steps.package.outputs.name }}
           PACKAGE_VERSION: ${{ steps.package.outputs.version }}
         run: |

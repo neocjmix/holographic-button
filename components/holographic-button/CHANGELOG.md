@@ -2,6 +2,12 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning.
 
+## 0.1.1 — 2026-08-25
+
+### Fixed
+
+- Prevented a load-time iOS Safari permission request from blocking the first real interaction, and request only the shared orientation permission instead of racing both sensor APIs.
+
 ## 0.1.0 — 2026-08-24
 
 ### Added
@@ -15,8 +21,6 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 ### Fixed
 
 - Made iOS Safari motion authorization recover existing permission on entry and retry safely on tap when WebKit rejects a non-eligible gesture.
-- Prevented a load-time iOS permission request from blocking the first real interaction, and request only the shared orientation permission instead of racing both sensor APIs.
-
 ### Changed
 
 - Reworked the shared specular response as a smooth glass clear coat and moved the fixed key light roughly 45° toward the lower side of the surface.
