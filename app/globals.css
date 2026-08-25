@@ -1,6 +1,3 @@
-@import "tailwindcss";
-@import "@neocjmix/holographic-button/styles.css";
-
 :root{color-scheme:dark;--bg:#07080b;--panel:#0d0f14;--panel-2:#11131a;--line:#24262e;--muted:#858891;--ink:#f1f0ea;--violet:#bdb7dc;--mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
 *{box-sizing:border-box}html{background:var(--bg);scroll-behavior:smooth;scroll-padding-top:84px}body{margin:0;background:var(--bg);color:var(--ink);font-family:Arial,Helvetica,sans-serif;overflow-x:hidden}button,input{font:inherit}a{color:inherit}.docs-shell{min-height:100svh;overflow:hidden;background:radial-gradient(circle at 77% 8%,rgba(112,80,170,.14),transparent 24%),linear-gradient(145deg,#0a0b0f,#06070a 68%);position:relative}
 .docs-shell:before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.2;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.11'/%3E%3C/svg%3E");mix-blend-mode:soft-light}

@@ -1,5 +1,5 @@
 import {build} from "esbuild";
-import {mkdir,readFile,writeFile} from "node:fs/promises";
+import {copyFile,mkdir,readFile,writeFile} from "node:fs/promises";
 
 const outDir=new URL("../github-pages/assets/",import.meta.url);
 const rootReact=new URL("../node_modules/react",import.meta.url).pathname;
@@ -22,7 +22,6 @@ await build({
  define:{"process.env.NODE_ENV":JSON.stringify("production")}
 });
 const component=await readFile(new URL("../components/holographic-button/holographic-button.css",import.meta.url),"utf8");
-const docs=(await readFile(new URL("../app/globals.css",import.meta.url),"utf8"))
- .replace('@import "tailwindcss";',"")
- .replace('@import "@neocjmix/holographic-button/styles.css";',"");
+const docs=await readFile(new URL("../app/globals.css",import.meta.url),"utf8");
 await writeFile(new URL("styles.css",outDir),component+"\n"+docs);
+await copyFile(new URL("../public/favicon.svg",import.meta.url),new URL("../github-pages/favicon.svg",import.meta.url));
