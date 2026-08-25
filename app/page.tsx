@@ -91,15 +91,16 @@ function ReflectiveButton({matrix,onClick,label,index,material,method}:{matrix:R
 }
 
 function HUD({data,enable}:{data:Telemetry;enable:()=>void}){
- return <aside className={"sensor-hud "+data.signal}>
-  <div className="hud-head"><span className="hud-led"/><b>WORLD ATTITUDE</b><em>{data.signal==="live"?"LIVE":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em></div>
-  <div className="hud-grid"><span>PERMISSION</span><strong>{data.permission}</strong><span>SOURCE</span><strong>{data.source}</strong>
+ const[expanded,setExpanded]=useState(true);
+ return <aside className={"sensor-hud "+data.signal+(expanded?"":" collapsed")}>
+  <button className="hud-head" onClick={()=>setExpanded(v=>!v)} aria-expanded={expanded} aria-label={expanded?"Collapse sensor HUD":"Expand sensor HUD"}><span className="hud-led"/><b>WORLD ATTITUDE</b><em>{data.signal==="live"?"LIVE":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em><i className="hud-caret">⌄</i></button>
+  <div className="hud-content"><div className="hud-grid"><span>PERMISSION</span><strong>{data.permission}</strong><span>SOURCE</span><strong>{data.source}</strong>
    <span>EVENTS</span><strong>{data.events}</strong><span>RATE</span><strong>{data.hz.toFixed(1)} Hz</strong>
    <span>ALPHA / YAW</span><strong>{fmt(data.alpha)}</strong><span>BETA / PITCH</span><strong>{fmt(data.beta)}</strong>
    <span>GAMMA / ROLL</span><strong>{fmt(data.gamma)}</strong><span>LAST</span><strong>{data.age===null?"—":data.age+" ms"}</strong>
    <span>NORMAL X</span><strong>{data.normal[0].toFixed(3)}</strong><span>NORMAL Y</span><strong>{data.normal[1].toFixed(3)}</strong>
    <span>NORMAL Z</span><strong>{data.normal[2].toFixed(3)}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
-  </div><button className="hud-motion" onClick={enable} disabled={data.signal==="live"}><span>◉</span>{data.signal==="live"?"MOTION LIVE":"ENABLE MOTION"}</button>
+  </div><button className="hud-motion" onClick={enable} disabled={data.signal==="live"}><span>◉</span>{data.signal==="live"?"MOTION LIVE":"ENABLE MOTION"}</button></div>
  </aside>;
 }
 
