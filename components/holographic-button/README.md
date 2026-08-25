@@ -45,6 +45,7 @@ export function CTA() {
       width="min(100%, 560px)"
       height={148}
       specularIntensity={1}
+      specularSize={1}
       specularRoughness={0.06}
       specularBloom={0.14}
       specularFresnel={0.22}
@@ -85,7 +86,8 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `children` | `ReactNode` | `ACTIVATE` | Main button content. |
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
-| `specularIntensity` | `number` | `1` | Surface highlight energy, clamped to `0–3`. |
+| `specularIntensity` | `number` | `1` | All direct specular energy, clamped to `0–3`; `0` fully disables the highlight. |
+| `specularSize` | `number` | `1` | Highlight footprint scale, clamped to `0.25–3`. |
 | `specularRoughness` | `number` | `0.06` | Surface specular lobe width, clamped to `0.025–0.3`. |
 | `specularBloom` | `number` | `0.14` | Soft blue-white highlight halo, clamped to `0–1`. |
 | `specularFresnel` | `number` | `0.22` | Grazing-angle reflection strength, clamped to `0–1`. |
@@ -96,7 +98,7 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission. Plain text inherits the default black label treatment; `children` remains a `ReactNode`, so styled JSX, icons, and custom label structures can provide their own colors.
 
-Specular props are uploaded as WebGL uniforms on the existing animation loop, so live changes do not recreate the WebGL program. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat. The extra controls follow common PBR material concepts: tinted F0/specular color, dielectric IOR, and an anisotropic lobe with a rotatable direction.
+Specular props are uploaded as WebGL uniforms on the existing animation loop, so live changes do not recreate the WebGL program. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat. `specularIntensity={0}` also removes the direct environment-light lobes and rim glints while retaining the holographic base material. The extra controls follow common PBR material concepts: tinted F0/specular color, dielectric IOR, and an anisotropic lobe with a rotatable direction.
 
 Parameter semantics are informed by Khronos glTF's [`KHR_materials_specular`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular), [`KHR_materials_ior`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior), and [`KHR_materials_anisotropy`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_anisotropy) material extensions. This button uses a compact custom WebGL 1 approximation rather than claiming full glTF conformance.
 

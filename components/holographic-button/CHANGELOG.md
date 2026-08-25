@@ -24,3 +24,5 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Softened the recessed/raised rim transition by widening the bump profile and reducing its normal displacement.
 - Added specular color, dielectric IOR, anisotropy strength, and anisotropy rotation controls.
 - Changed the default text label treatment from white screen blending to solid black while preserving arbitrary JSX children.
+- Made zero specular intensity disable every direct highlight contribution and added an independent highlight-size control.
+- Removed the label text shadow so the copy no longer appears engraved.
