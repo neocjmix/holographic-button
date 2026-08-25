@@ -2,6 +2,8 @@ import {build} from "esbuild";
 import {mkdir,readFile,writeFile} from "node:fs/promises";
 
 const outDir=new URL("../github-pages/assets/",import.meta.url);
+const rootReact=new URL("../node_modules/react",import.meta.url).pathname;
+const rootReactDom=new URL("../node_modules/react-dom",import.meta.url).pathname;
 await mkdir(outDir,{recursive:true});
 await build({
  entryPoints:[new URL("../github-pages/entry.tsx",import.meta.url).pathname],
@@ -13,6 +15,10 @@ await build({
  platform:"browser",
  target:["es2020"],
  jsx:"automatic",
+ alias:{
+  react:rootReact,
+  "react-dom":rootReactDom
+ },
  define:{"process.env.NODE_ENV":JSON.stringify("production")}
 });
 const component=await readFile(new URL("../components/holographic-button/holographic-button.css",import.meta.url),"utf8");
