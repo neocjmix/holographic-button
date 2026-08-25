@@ -32,6 +32,10 @@ export default function Home(){
  const[specularRoughness,setSpecularRoughness]=useState(.06);
  const[specularBloom,setSpecularBloom]=useState(.14);
  const[specularFresnel,setSpecularFresnel]=useState(.22);
+ const[specularColor,setSpecularColor]=useState("#fffaf6");
+ const[specularIOR,setSpecularIOR]=useState(1.5);
+ const[specularAnisotropy,setSpecularAnisotropy]=useState(0);
+ const[specularRotation,setSpecularRotation]=useState(0);
  const[disabled,setDisabled]=useState(false);
  const[manager,setManager]=useState<keyof typeof installCommands>("npm");
  const[activated,setActivated]=useState(0);
@@ -44,9 +48,11 @@ export default function Home(){
   '      width="min(100%, '+width+'px)"','      height={'+height+'}',
   '      specularIntensity={'+specularIntensity.toFixed(2)+'}','      specularRoughness={'+specularRoughness.toFixed(3)+'}',
   '      specularBloom={'+specularBloom.toFixed(2)+'}','      specularFresnel={'+specularFresnel.toFixed(2)+'}',
+  '      specularColor="'+specularColor+'"','      specularIOR={'+specularIOR.toFixed(2)+'}',
+  '      specularAnisotropy={'+specularAnisotropy.toFixed(2)+'}','      specularAnisotropyRotation={'+(specularRotation*Math.PI/180).toFixed(3)+'}',
   disabled?'      disabled':'',
   '      onClick={() => alert("Activated")}','    >','      '+label,'    </HolographicButton>','  );','}'
- ].filter(Boolean).join("\n"),[variant,width,height,specularIntensity,specularRoughness,specularBloom,specularFresnel,disabled,label]);
+ ].filter(Boolean).join("\n"),[variant,width,height,specularIntensity,specularRoughness,specularBloom,specularFresnel,specularColor,specularIOR,specularAnisotropy,specularRotation,disabled,label]);
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
@@ -86,11 +92,15 @@ export default function Home(){
       <label className="range-field"><span>Roughness <b>{specularRoughness.toFixed(3)}</b></span><input type="range" min="0.025" max="0.3" step="0.005" value={specularRoughness} onChange={e=>setSpecularRoughness(Number(e.target.value))}/></label>
       <label className="range-field"><span>Bloom <b>{specularBloom.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularBloom} onChange={e=>setSpecularBloom(Number(e.target.value))}/></label>
       <label className="range-field"><span>Fresnel <b>{specularFresnel.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularFresnel} onChange={e=>setSpecularFresnel(Number(e.target.value))}/></label>
+      <label className="color-field"><span>Color <b>{specularColor}</b></span><input type="color" value={specularColor} onChange={e=>setSpecularColor(e.target.value)}/></label>
+      <label className="range-field"><span>IOR <b>{specularIOR.toFixed(2)}</b></span><input type="range" min="1" max="2.5" step="0.05" value={specularIOR} onChange={e=>setSpecularIOR(Number(e.target.value))}/></label>
+      <label className="range-field"><span>Anisotropy <b>{specularAnisotropy.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularAnisotropy} onChange={e=>setSpecularAnisotropy(Number(e.target.value))}/></label>
+      <label className="range-field"><span>Direction <b>{specularRotation}°</b></span><input type="range" min="0" max="360" step="1" value={specularRotation} onChange={e=>setSpecularRotation(Number(e.target.value))}/></label>
      </div>
     </div>
     <div className="live-stage">
      <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>
-     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} specularIntensity={specularIntensity} specularRoughness={specularRoughness} specularBloom={specularBloom} specularFresnel={specularFresnel} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
+     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} specularIntensity={specularIntensity} specularRoughness={specularRoughness} specularBloom={specularBloom} specularFresnel={specularFresnel} specularColor={specularColor} specularIOR={specularIOR} specularAnisotropy={specularAnisotropy} specularAnisotropyRotation={specularRotation*Math.PI/180} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
      <p>{disabled?"DISABLED · NATIVE STATE":activated?"EVENT RECEIVED × "+activated:"CLICK, TAP, FOCUS, OR SUBMIT LIKE A BUTTON"}</p>
     </div>
    </div>
@@ -130,7 +140,11 @@ export default function Home(){
       ["specularIntensity","number","1","Surface highlight energy, clamped from 0 to 3."],
       ["specularRoughness","number","0.06","Surface specular lobe width, clamped from 0.025 to 0.3."],
       ["specularBloom","number","0.14","Soft blue-white halo around the highlight, clamped from 0 to 1."],
-      ["specularFresnel","number","0.22","How strongly the coat brightens toward grazing angles, clamped from 0 to 1."],
+      ["specularFresnel","number","0.22","How strongly the surface brightens toward grazing angles, clamped from 0 to 1."],
+      ["specularColor","hex or RGB tuple","#fffaf6","F0 highlight tint as #RGB, #RRGGBB, or normalized RGB."],
+      ["specularIOR","number","1.5","Dielectric index of refraction, clamped from 1 to 2.5."],
+      ["specularAnisotropy","number","0","Highlight elongation, clamped from 0 to 1."],
+      ["specularAnisotropyRotation","radians","0","Direction of the elongated highlight, clamped to ±2π."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}
     </div><div className="native-strip"><b>Also forwards</b><span>on*</span><span>disabled</span><span>type / name / value / form</span><span>aria-* / data-*</span><span>className / style / ref</span></div></div>
     <div className="api-block"><h3>useHolographicMotion</h3><div className="hook-card"><code>const motion = useHolographicMotion(&#123;<br/>  pointerFallback: true,<br/>  requestOnFirstInteraction: true,<br/>  telemetry: false<br/>&#125;);</code><p>Use one instance per group. Reactive <code>telemetry</code> is opt-in, so the default path does not re-render the tree for diagnostics. The library renders no HUD.</p></div>

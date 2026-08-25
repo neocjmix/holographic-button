@@ -21,3 +21,6 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Reworked the shared specular response as a smooth glass clear coat and moved the fixed key light roughly 45° toward the lower side of the surface.
 - Exposed surface-specular intensity, roughness, bloom, and Fresnel as live-updating component props.
 - Unified specular lighting with each material's perturbed surface normal so prism facets and rim bump directly shape the highlight instead of carrying a separate smooth top coat.
+- Softened the recessed/raised rim transition by widening the bump profile and reducing its normal displacement.
+- Added specular color, dielectric IOR, anisotropy strength, and anisotropy rotation controls.
+- Changed the default text label treatment from white screen blending to solid black while preserving arbitrary JSX children.
