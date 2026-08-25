@@ -1,12 +1,38 @@
-# Holographic Button
+# @neocjmix/holographic-button
 
-WebGL React CTA with four optical models, world-fixed lighting, pointer fallback, and device-attitude input.
+A physically directed holographic WebGL button for React. Its reflective surface responds to device attitude on mobile and pointer movement on desktop while the lights remain fixed in world space.
+
+[Live demo](https://neocjmix.github.io/holographic-cta-lab/) · [Source](https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react) · MIT
+
+## Features
+
+- Four distinct optical models rather than one shader with color presets.
+- World-fixed specular lighting and a recessed-to-raised reflective rim.
+- Device orientation, motion fallback, screen rotation correction, and pointer fallback.
+- A real `<button>` with native events, form props, accessibility attributes, and DOM refs.
+- One shared motion hook can drive any number of buttons.
+- No runtime dependency beyond React. WebGL 1 compatible.
+
+## Install
+
+```bash
+npm install @neocjmix/holographic-button
+```
+
+## Quick start
 
 ```tsx
-import { HolographicButton, useHolographicMotion } from "./components/holographic-button";
+"use client";
+
+import {
+  HolographicButton,
+  useHolographicMotion,
+} from "@neocjmix/holographic-button";
+import "@neocjmix/holographic-button/styles.css";
 
 export function CTA() {
   const motion = useHolographicMotion();
+
   return (
     <HolographicButton
       motion={motion}
@@ -15,7 +41,6 @@ export function CTA() {
       height={148}
       eyebrow="BROAD SWEEP"
       badge="01"
-      disabled={false}
       onClick={() => alert("Activated")}
     >
       ACTIVATE
@@ -24,10 +49,61 @@ export function CTA() {
 }
 ```
 
+In Next.js App Router, render the hook and button from a Client Component. Import the stylesheet once from that component or your global stylesheet entry.
+
+## API
+
+### `useHolographicMotion(options?)`
+
+Creates the shared attitude matrix. Use one hook per visual group and pass the returned `motion` object to every button.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `pointerFallback` | `boolean` | `true` | Uses pointer position when a live sensor signal is unavailable. |
+| `requestOnFirstInteraction` | `boolean` | `true` | Requests iOS motion permission on the first user gesture. |
+| `telemetry` | `boolean` | `false` | Enables reactive diagnostic updates. Leave off to avoid monitoring re-renders. |
+
+The returned object includes `telemetry` when reactive diagnostics are enabled. The library itself renders no HUD.
+
+### `<HolographicButton>`
+
+| Prop | Type | Default | Description |
+| --- | --- | --- | --- |
+| `motion` | `HolographicMotion` | required | Shared motion object returned by the hook. |
+| `variant` | `HolographicVariant` | `spectral-film` | Optical surface model. |
+| `children` | `ReactNode` | `ACTIVATE` | Main button content. |
+| `eyebrow` | `ReactNode` | — | Small upper-left material label. |
+| `badge` | `ReactNode` | — | Small right-side badge. |
+| `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
+| `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
+
+Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission.
+
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, and `facet-chrome`.
 
-`HolographicButtonProps` includes React's native button props, so `onClick`, all `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref` work on the real `<button>` element. `width` and `height` are convenience layout props and accept CSS values or numbers.
+## Motion permission
 
-The silhouette is intentionally a pill. Arbitrary `border-radius` is not exposed because the WebGL signed-distance field, reflective rim, and DOM clipping must describe the same geometry.
+Most browsers expose device attitude immediately on HTTPS. iOS Safari requires its permission request to occur during a user gesture, so the hook asks on the first interaction instead of showing a separate enable button. Until sensor events arrive, pointer movement drives the same world-space reflection model.
 
-The hook automatically uses pointer movement on desktop. On iOS, the first user interaction requests motion permission because Safari requires transient user activation.
+## Accessibility and fallbacks
+
+- Keyboard activation, focus, disabled state, form behavior, and ARIA come from the native button.
+- The canvas is decorative; visible content remains DOM text.
+- If WebGL is unavailable, the button keeps its native interaction and displays a fallback surface.
+- `prefers-reduced-motion` removes CSS transitions. Sensor-driven material response remains direct input feedback.
+
+## Styling
+
+Use `width`, `height`, `className`, and `style` for layout. The silhouette is intentionally a pill: arbitrary `border-radius` is not exposed because the WebGL signed-distance field, reflective rim, and DOM clipping must describe the same geometry.
+
+## Browser support
+
+Modern browsers with WebGL 1 and React 18.2 or newer. Device orientation requires HTTPS and may be limited by browser or embedded-webview policy.
+
+## Credits
+
+Visual direction inspired by [Rthwik Gopinath’s Holographic CTA](https://dribbble.com/shots/25057911-Holographic-CTA). Shader, interaction model, and React implementation by ChanJin Park.
+
+## License
+
+[MIT](./LICENSE) © 2026 ChanJin Park

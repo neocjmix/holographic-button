@@ -1,0 +1,66 @@
+{
+  "name": "@neocjmix/holographic-button",
+  "version": "0.1.0",
+  "description": "A world-lit holographic WebGL button for React, driven by device attitude or pointer movement.",
+  "license": "MIT",
+  "author": "ChanJin Park",
+  "type": "module",
+  "sideEffects": [
+    "./dist/styles.css"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "style": "./dist/styles.css",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./dist/styles.css"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node build.mjs",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=18.2.0 <20"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "typescript": "^5.9.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neocjmix/neocjmix.github.io.git",
+    "directory": "holographic-cta-lab/react"
+  },
+  "homepage": "https://neocjmix.github.io/holographic-cta-lab/",
+  "bugs": {
+    "url": "https://github.com/neocjmix/neocjmix.github.io/issues"
+  },
+  "keywords": [
+    "react",
+    "button",
+    "webgl",
+    "holographic",
+    "hologram",
+    "device-orientation",
+    "ui",
+    "component"
+  ]
+}

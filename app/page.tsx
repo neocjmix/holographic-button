@@ -1,62 +1,136 @@
 "use client";
-import {useState} from "react";
-import {HolographicButton,type HolographicTelemetry,type HolographicVariant,useHolographicMotion} from "../components/holographic-button";
 
-const fmt=(n:number|null)=>n===null?"—":n.toFixed(1)+"°";
-const code=`import {
-  HolographicButton,
-  useHolographicMotion,
-} from "./components/holographic-button";
+import {useMemo,useState} from "react";
+import {HolographicButton,type HolographicVariant,useHolographicMotion} from "@neocjmix/holographic-button";
 
-export function CTA() {
-  const motion = useHolographicMotion();
+const PACKAGE="@neocjmix/holographic-button";
+const variants:{value:HolographicVariant;label:string;note:string;eyebrow:string}[]=[
+ {value:"spectral-film",label:"Spectral",note:"Broad rainbow sweep",eyebrow:"BROAD SWEEP"},
+ {value:"brushed-foil",label:"Brushed",note:"Directional metal grain",eyebrow:"BRUSHED FOIL"},
+ {value:"thin-film",label:"Pearl",note:"Clean thin-film gradient",eyebrow:"THIN-FILM"},
+ {value:"facet-chrome",label:"Prism",note:"Fragmented chrome facets",eyebrow:"FACET CHROME"},
+];
+const installCommands={npm:"npm install "+PACKAGE,pnpm:"pnpm add "+PACKAGE,yarn:"yarn add "+PACKAGE,bun:"bun add "+PACKAGE};
 
-  return (
-    <HolographicButton
-      motion={motion}
-      variant="spectral-film"
-      width="min(100%, 560px)"
-      height={148}
-      eyebrow="BROAD SWEEP"
-      badge="01"
-      onClick={() => alert("Activated")}
-    >
-      ACTIVATE
-    </HolographicButton>
-  );
-}`;
-
-function HUD({data}:{data:HolographicTelemetry}){
- const[expanded,setExpanded]=useState(true);
- return <aside className={"sensor-hud "+data.signal+(expanded?"":" collapsed")}>
-  <button className="hud-head" onClick={()=>setExpanded(v=>!v)} aria-expanded={expanded} aria-label={expanded?"Collapse sensor HUD":"Expand sensor HUD"}><span className="hud-led"/><b>WORLD ATTITUDE</b><em>{data.signal==="live"?"LIVE":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em><i className="hud-caret">⌄</i></button>
-  <div className="hud-content"><div className="hud-grid"><span>PERMISSION</span><strong>{data.permission}</strong><span>SOURCE</span><strong>{data.source}</strong>
-   <span>EVENTS</span><strong>{data.events}</strong><span>RATE</span><strong>{data.hz.toFixed(1)} Hz</strong>
-   <span>ALPHA / YAW</span><strong>{fmt(data.alpha)}</strong><span>BETA / PITCH</span><strong>{fmt(data.beta)}</strong>
-   <span>GAMMA / ROLL</span><strong>{fmt(data.gamma)}</strong><span>LAST</span><strong>{data.age===null?"—":data.age+" ms"}</strong>
-   <span>NORMAL X</span><strong>{data.normal[0].toFixed(3)}</strong><span>NORMAL Y</span><strong>{data.normal[1].toFixed(3)}</strong>
-   <span>NORMAL Z</span><strong>{data.normal[2].toFixed(3)}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
-  </div></div>
- </aside>
+function CopyButton({value,label="Copy"}:{value:string;label?:string}){
+ const[copied,setCopied]=useState(false);
+ const copy=async()=>{await navigator.clipboard?.writeText(value);setCopied(true);setTimeout(()=>setCopied(false),1400)};
+ return <button className="copy-button" onClick={copy} aria-label={"Copy "+label}>{copied?"Copied":"Copy"}</button>;
 }
 
-const variants:{variant:HolographicVariant;eyebrow:string;name:string;badge:string}[]=[
- {variant:"spectral-film",eyebrow:"BROAD SWEEP",name:"SPECTRAL FILM",badge:"01"},
- {variant:"brushed-foil",eyebrow:"BRUSHED FOIL",name:"PETROL",badge:"02"},
- {variant:"thin-film",eyebrow:"THIN-FILM",name:"PEARL",badge:"03"},
- {variant:"facet-chrome",eyebrow:"FACET CHROME",name:"PRISM",badge:"04"},
-];
+function CodeBlock({code,label}:{code:string;label:string}){
+ return <div className="code-block"><div className="code-head"><span>{label}</span><CopyButton value={code} label={label}/></div><pre><code>{code}</code></pre></div>;
+}
 
 export default function Home(){
- const motion=useHolographicMotion(),[alert,setAlert]=useState<string|null>(null),[copied,setCopied]=useState(false);
- const copy=async()=>{await navigator.clipboard?.writeText(code);setCopied(true);setTimeout(()=>setCopied(false),1400)};
- return <main className="lab-shell"><header><div><p className="eyebrow">REUSABLE OPTICAL UI <span>REACT / WEBGL</span></p><h1>Holographic<br/><i>Button</i></h1></div><p className="intro">One hook. Four optical models.<br/>World-space light and device attitude.</p></header>
-  <section className="hero"><div className="axis-label"><span>LIVE COMPONENTS</span><i/></div><div className="variation-grid">
-   {variants.map(v=><article className="variation" key={v.variant}><HolographicButton motion={motion} variant={v.variant} eyebrow={v.eyebrow} badge={v.badge} aria-label={`Activate ${v.name}`} onClick={()=>setAlert(v.name)}>{v.name}</HolographicButton></article>)}
-  </div><div className="material-note"><span>4 OPTICAL MODELS</span><span>SHARED MOTION HOOK</span><span>WORLD LIGHTS</span></div></section>
-  <section className="usage"><div className="axis-label"><span>USE IT</span><i/></div><div className="usage-grid"><div><h2>A real button API.</h2><p>Render one motion hook per scene and share it across any number of buttons. The component forwards native button handlers, form props, accessibility attributes, styles, and refs to its actual button element.</p><div className="api-row"><span>width / height</span><span>className / style</span><span>disabled / type</span><span>all on* handlers</span><span>ref / aria-* / data-*</span></div></div><div className="code-card"><button onClick={copy}>{copied?"COPIED":"COPY"}</button><pre><code>{code}</code></pre></div></div></section>
-  <footer><span>REACT COMPONENT / WEBGL 1 / ZERO RUNTIME DEPENDENCIES<br/><a href="https://dribbble.com/shots/25057911-Holographic-CTA" target="_blank" rel="noreferrer">INSPIRED BY RTHWIK GOPINATH — HOLOGRAPHIC CTA ↗</a></span><span>2026</span></footer>
-  <HUD data={motion.telemetry}/>
-  {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true"><div className="alert-icon">✓</div><p>{alert}</p><h2>Component activated.</h2><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button></div></div>}
- </main>
+ const motion=useHolographicMotion();
+ const[variant,setVariant]=useState<HolographicVariant>("spectral-film");
+ const[label,setLabel]=useState("ACTIVATE");
+ const[eyebrow,setEyebrow]=useState("BROAD SWEEP");
+ const[badge,setBadge]=useState("01");
+ const[width,setWidth]=useState(560);
+ const[height,setHeight]=useState(148);
+ const[disabled,setDisabled]=useState(false);
+ const[manager,setManager]=useState<keyof typeof installCommands>("npm");
+ const[activated,setActivated]=useState(0);
+ const code=useMemo(()=>[
+  '"use client";','',
+  'import {','  HolographicButton,','  useHolographicMotion,','} from "'+PACKAGE+'";',
+  'import "'+PACKAGE+'/styles.css";','',
+  'export function CTA() {','  const motion = useHolographicMotion();','',
+  '  return (','    <HolographicButton','      motion={motion}','      variant="'+variant+'"',
+  '      width="min(100%, '+width+'px)"','      height={'+height+'}','      eyebrow="'+eyebrow+'"','      badge="'+badge+'"',
+  disabled?'      disabled':'',
+  '      onClick={() => alert("Activated")}','    >','      '+label,'    </HolographicButton>','  );','}'
+ ].filter(Boolean).join("\n"),[variant,width,height,eyebrow,badge,disabled,label]);
+
+ return <main className="docs-shell">
+  <nav className="topbar" aria-label="Primary navigation">
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v0.1.0</em></a>
+   <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div>
+  </nav>
+
+  <section className="hero-section" id="top">
+   <div className="hero-copy">
+    <p className="kicker"><span>REACT / WEBGL</span> WORLD-LIT INTERFACE MATERIAL</p>
+    <h1>A button that<br/>reflects <i>the room.</i></h1>
+    <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
+    <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
+    <div className="hero-facts"><span>MIT LICENSE</span><span>4 MATERIALS</span><span>REACT 18+</span><span>WEBGL 1</span></div>
+   </div>
+   <div className="hero-object">
+    <p>LIVE MATERIAL <span>MOVE YOUR DEVICE</span></p>
+    <HolographicButton motion={motion} variant="spectral-film" eyebrow="WORLD REFLECTION" badge="01" width="min(100%, 620px)" height={164} onClick={()=>setActivated(v=>v+1)}>ENTER</HolographicButton>
+    <small>{activated?"ACTIVATED × "+activated:"NATIVE BUTTON · TAP TO TEST"}</small>
+   </div>
+  </section>
+
+  <section className="playground section-frame" id="playground">
+   <div className="section-intro"><p className="section-index">01 / PLAYGROUND</p><h2>Tune it in place.</h2><p>Change the public props and copy the exact React code. Sensor input is automatic; desktop pointer movement uses the same reflection model.</p></div>
+   <div className="playground-grid">
+    <div className="control-panel">
+     <div className="control-group"><span className="control-label">Material</span><div className="segment-grid">{variants.map(item=><button key={item.value} className={variant===item.value?"selected":""} onClick={()=>{setVariant(item.value);setEyebrow(item.eyebrow)}}><b>{item.label}</b><small>{item.note}</small></button>)}</div></div>
+     <div className="field-grid">
+      <label><span>Label</span><input value={label} maxLength={18} onChange={e=>setLabel(e.target.value)}/></label>
+      <label><span>Eyebrow</span><input value={eyebrow} maxLength={22} onChange={e=>setEyebrow(e.target.value)}/></label>
+      <label><span>Badge</span><input value={badge} maxLength={6} onChange={e=>setBadge(e.target.value)}/></label>
+      <label className="toggle-field"><span>Disabled</span><button type="button" role="switch" aria-checked={disabled} className={disabled?"on":""} onClick={()=>setDisabled(v=>!v)}><i/></button></label>
+     </div>
+     <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
+     <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
+    </div>
+    <div className="live-stage">
+     <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>
+     <HolographicButton motion={motion} variant={variant} eyebrow={eyebrow||undefined} badge={badge||undefined} width={"min(100%, "+width+"px)"} height={height} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
+     <p>{disabled?"DISABLED · NATIVE STATE":activated?"EVENT RECEIVED × "+activated:"CLICK, TAP, FOCUS, OR SUBMIT LIKE A BUTTON"}</p>
+    </div>
+   </div>
+   <CodeBlock code={code} label="CTA.tsx"/>
+  </section>
+
+  <section className="install section-frame" id="install">
+   <div className="section-intro"><p className="section-index">02 / INSTALL</p><h2>Two imports.<br/>One shared hook.</h2><p>The JavaScript is ESM and the stylesheet is an explicit export. React is a peer dependency; there are no other runtime packages.</p></div>
+   <div className="install-grid">
+    <div className="install-card">
+     <div className="manager-tabs" role="tablist" aria-label="Package manager">{(Object.keys(installCommands) as (keyof typeof installCommands)[]).map(item=><button type="button" role="tab" aria-selected={manager===item} className={manager===item?"active":""} onClick={()=>setManager(item)} key={item}>{item}</button>)}</div>
+     <div className="command-line"><code>{installCommands[manager]}</code><CopyButton value={installCommands[manager]} label="install command"/></div>
+    </div>
+    <div className="install-steps">
+     <article><span>01</span><div><h3>Import the component</h3><p>Import the stylesheet once, then create one motion hook for the buttons in that visual scene.</p></div></article>
+     <article><span>02</span><div><h3>Render a real button</h3><p>Native events, form attributes, ARIA, data attributes, className, style, and ref reach the underlying element.</p></div></article>
+     <article><span>03</span><div><h3>Let input arrive</h3><p>Desktop uses pointer position. Supported phones use attitude sensors; iOS asks on the first user interaction.</p></div></article>
+    </div>
+   </div>
+  </section>
+
+  <section className="materials section-frame" id="materials">
+   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Four optical models.</h2><p>Each variant changes how the surface is described, not just its palette.</p></div>
+   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} eyebrow={item.eyebrow} badge={"0"+(index+1)} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
+  </section>
+
+  <section className="api section-frame" id="api">
+   <div className="section-intro"><p className="section-index">04 / API</p><h2>Small surface.<br/>Native behavior.</h2><p>The component adds material-specific props and inherits the rest from React’s native button type.</p></div>
+   <div className="api-content">
+    <div className="api-block"><h3>HolographicButton</h3><div className="api-table" role="table">
+     {[
+      ["motion","HolographicMotion","required","Shared matrix from the hook."],
+      ["variant","HolographicVariant","spectral-film","One of four optical surfaces."],
+      ["children","ReactNode","ACTIVATE","Visible primary content."],
+      ["eyebrow","ReactNode","—","Small upper-left label."],
+      ["badge","ReactNode","—","Small right-side metadata."],
+      ["width","CSS width","CSS default","Number or any CSS width."],
+      ["height","CSS height","CSS default","Number or any CSS height."],
+     ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}
+    </div><div className="native-strip"><b>Also forwards</b><span>on*</span><span>disabled</span><span>type / name / value / form</span><span>aria-* / data-*</span><span>className / style / ref</span></div></div>
+    <div className="api-block"><h3>useHolographicMotion</h3><div className="hook-card"><code>const motion = useHolographicMotion(&#123;<br/>  pointerFallback: true,<br/>  requestOnFirstInteraction: true,<br/>  telemetry: false<br/>&#125;);</code><p>Use one instance per group. Reactive <code>telemetry</code> is opt-in, so the default path does not re-render the tree for diagnostics. The library renders no HUD.</p></div>
+    <div className="support-card"><span>GEOMETRY NOTE</span><h4>The pill is intentional.</h4><p>Arbitrary corner radius is not exposed because the DOM clipping, WebGL signed-distance field, and reflective rim must describe the same contour.</p></div></div>
+   </div>
+  </section>
+
+  <section className="closing">
+   <p>READY FOR A LITTLE TOO MUCH BUTTON?</p><h2>Give the interface<br/><i>a surface.</i></h2><a href="#install">Install {PACKAGE} <span>↗</span></a>
+  </section>
+
+  <footer><div><span className="brand-mark"/><b>Holographic Button</b><small>MIT © 2026 ChanJin Park</small></div><p>Inspired by <a href="https://dribbble.com/shots/25057911-Holographic-CTA" target="_blank" rel="noreferrer">Rthwik Gopinath’s Holographic CTA ↗</a></p><div><a href="#top">Top ↑</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+ </main>;
 }
