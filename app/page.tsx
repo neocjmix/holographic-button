@@ -22,7 +22,7 @@ function surfaceNormal(m:Float32Array):[number,number,number]{return[m[6],m[7],m
 const VS="attribute vec2 position;varying vec2 uv;void main(){uv=position*.5+.5;gl_Position=vec4(position,0.,1.);}";
 const FS=[
 "#extension GL_OES_standard_derivatives : enable",
-"precision highp float;varying vec2 uv;uniform vec2 resolution;uniform mat3 worldFromDevice;uniform float time;",
+"precision highp float;varying vec2 uv;uniform vec2 resolution;uniform mat3 worldFromDevice;uniform float time;uniform vec4 material;",
 "float sdRoundRect(vec2 p,vec2 b,float r){vec2 q=abs(p)-b+r;return min(max(q.x,q.y),0.)+length(max(q,0.))-r;}",
 "float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}",
 "float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}",
@@ -39,23 +39,26 @@ const FS=[
 "void main(){",
 " vec2 p=uv-.5;float aspect=resolution.x/resolution.y;p.x*=aspect;",
 " float d=sdRoundRect(p,vec2(aspect*.488,.465),.43);float aa=max(fwidth(d)*1.5,.0015);float alpha=1.-smoothstep(-aa,aa,d);if(alpha<.01)discard;",
-" vec2 grad=normalize(vec2(dFdx(d),dFdy(d))+vec2(.00001));float edge=1.-smoothstep(0.,.075,-d);",
+" vec2 grad=normalize(vec2(dFdx(d),dFdy(d))+vec2(.00001));float inward=max(-d,0.);float edge=1.-smoothstep(0.,.12,inward);",
+" float ringMask=1.-smoothstep(.095,.12,inward);float ringPhase=clamp(inward/.095,0.,1.)*6.28318;",
+" float ringHeight=sin(ringPhase)*ringMask;float ringSlope=cos(ringPhase)*ringMask;",
 " float grain=noise(uv*vec2(720.,115.));float brush=sin(uv.x*1380.+noise(uv*vec2(7.,29.))*8.);",
 " vec2 micro=vec2(dFdx(grain),dFdy(grain))*.16+vec2(brush*.006,sin(uv.x*71.+uv.y*23.)*.004);",
-" vec3 n=normalize(vec3(grad*edge*.82+micro,mix(1.,.48,edge)));vec3 nw=normalize(worldFromDevice*n);",
+" vec3 n=normalize(vec3(grad*(edge*.28+ringSlope*.74)+micro,mix(1.,.52,abs(ringSlope)*ringMask)));vec3 nw=normalize(worldFromDevice*n);",
 " vec3 v=vec3(0,0,1),vw=normalize(worldFromDevice*v),rw=normalize(reflect(-vw,nw));",
 " vec3 light=normalize(vec3(-.34,.78,.52)),light2=normalize(vec3(.72,-.12,.68));",
 " float ndl=max(dot(nw,light),0.),ndl2=max(dot(nw,light2),0.),ndv=max(dot(nw,vw),.001);",
-" vec3 h=normalize(light+vw);float spec=ggx(max(dot(nw,h),0.),mix(.13,.24,grain))*ndl;",
+" vec3 h=normalize(light+vw);float spec=ggx(max(dot(nw,h),0.),mix(material.z,material.z+.11,grain))*ndl;",
 " float fresnel=.18+.82*pow(1.-ndv,5.);vec3 env=environment(rw);",
-" float incidence=dot(nw,light);float diffraction=dot(rw,normalize(vec3(.73,.21,.65)))*2.7+incidence*1.85;",
+" float incidence=dot(nw,light);float diffraction=dot(rw,normalize(vec3(.73,.21,.65)))*(2.1+material.w*1.4)+incidence*1.85+material.x;",
 " diffraction+=sin(uv.y*94.+noise(uv*vec2(13.,8.))*4.)*.07;",
-" vec3 holo=spectrum(diffraction);float holoMask=smoothstep(.05,.72,1.-abs(incidence))*(.48+.32*grain);",
+" vec3 holo=spectrum(diffraction);float holoMask=smoothstep(.05,.72,1.-abs(incidence))*(.38+.34*grain)*material.y;",
 " vec3 metal=env*(.78+fresnel*.9)+vec3(spec)*1.65+ndl2*vec3(.10,.035,.055);",
-" metal=mix(metal,metal*.58+holo*.58,holoMask);",
+" vec3 tint=mix(vec3(.94,.96,1.02),spectrum(material.x+.18)*.34+vec3(.73),.32);metal*=tint;",
+" metal=mix(metal,metal*.56+holo*(.46+material.y*.18),holoMask);",
 " float foilFold=pow(.5+.5*sin(uv.y*43.+noise(uv*vec2(4.,19.))*6.),18.);metal+=foilFold*holo*.13;",
-" float rim=pow(edge,2.1);metal+=rim*(environment(normalize(reflect(-vw,normalize(nw+vec3(grad*.18,0.)))))*1.7+vec3(.14));",
-" float inner=1.-smoothstep(.075,.105,-d);metal+=inner*vec3(.18,.19,.21);",
+" float raised=max(ringHeight,0.),recessed=max(-ringHeight,0.);metal+=raised*(environment(rw)*1.25+vec3(.13));",
+" metal*=1.-recessed*.34;metal+=pow(max(ringSlope,0.),6.)*vec3(.28,.3,.33);",
 " float vignette=1.-dot(uv-.5,uv-.5)*.34;metal*=vignette;metal=metal/(metal+vec3(.78));",
 " gl_FragColor=vec4(pow(max(metal,0.),vec3(.86)),alpha);}"
 ].join("\n");
@@ -64,7 +67,7 @@ function compile(gl:WebGLRenderingContext,type:number,source:string){
  const s=gl.createShader(type)!;gl.shaderSource(s,source);gl.compileShader(s);
  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s)||"Shader compile failed");return s;
 }
-function ReflectiveButton({matrix,onClick}:{matrix:React.RefObject<Float32Array>;onClick:()=>void}){
+function ReflectiveButton({matrix,onClick,label,index,material}:{matrix:React.RefObject<Float32Array>;onClick:()=>void;label:string;index:string;material:[number,number,number,number]}){
  const canvas=useRef<HTMLCanvasElement>(null),[error,setError]=useState(false);
  useEffect(()=>{const c=canvas.current;if(!c)return;let raf=0;
   try{const gl=c.getContext("webgl",{alpha:true,antialias:true,premultipliedAlpha:true});if(!gl){setError(true);return}
@@ -73,16 +76,16 @@ function ReflectiveButton({matrix,onClick}:{matrix:React.RefObject<Float32Array>
    if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||"Program link failed");gl.useProgram(program);
    const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
    const pos=gl.getAttribLocation(program,"position");gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-   const uRes=gl.getUniformLocation(program,"resolution"),uWorld=gl.getUniformLocation(program,"worldFromDevice"),uTime=gl.getUniformLocation(program,"time");
+   const uRes=gl.getUniformLocation(program,"resolution"),uWorld=gl.getUniformLocation(program,"worldFromDevice"),uTime=gl.getUniformLocation(program,"time"),uMaterial=gl.getUniformLocation(program,"material");
    const draw=(now:number)=>{const r=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));
     if(c.width!==w||c.height!==h){c.width=w;c.height=h;gl.viewport(0,0,w,h)}gl.uniform2f(uRes,w,h);gl.uniformMatrix3fv(uWorld,false,matrix.current);
-    gl.uniform1f(uTime,now*.001);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6);raf=requestAnimationFrame(draw)};
+    gl.uniform1f(uTime,now*.001);gl.uniform4f(uMaterial,material[0],material[1],material[2],material[3]);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6);raf=requestAnimationFrame(draw)};
    raf=requestAnimationFrame(draw);return()=>cancelAnimationFrame(raf);
   }catch{setError(true)}
  },[matrix]);
  return <button className="sticker-stage" onClick={onClick} aria-label="Activate reflective holographic button">
   <span className="sticker-shadow"/><span className="sticker-body">{error?<span className="webgl-error">WEBGL UNAVAILABLE</span>:<canvas ref={canvas}/>}
-   <span className="sticker-copy"><small>WORLD–SPACE REFLECTION</small><b>ACTIVATE</b><em>01</em></span>
+   <span className="sticker-copy"><small>{label}</small><b>ACTIVATE</b><em>{index}</em></span>
   </span></button>;
 }
 
@@ -103,7 +106,7 @@ export default function Home(){
  const matrix=useRef<Float32Array>(attitudeMatrix(0,0,0,0)),pointer=useRef({x:0,y:0});
  const permission=useRef<Permission>("idle"),stats=useRef({events:0,first:0,last:0,lastOrientation:0,lastPaint:0});
  const[hud,setHud]=useState<Telemetry>({permission:"idle",signal:"waiting",source:"none",alpha:null,beta:null,gamma:null,events:0,hz:0,age:null,normal:[0,0,1],secure:true});
- const[alert,setAlert]=useState(false);
+ const[alert,setAlert]=useState<string|null>(null);
  const publish=useCallback((raw:Partial<Telemetry>,force=false)=>{const now=performance.now();if(!force&&now-stats.current.lastPaint<80)return;stats.current.lastPaint=now;
   setHud(old=>({...old,...raw,permission:permission.current,events:stats.current.events,hz:stats.current.events*1000/Math.max(1,now-stats.current.first),
    age:stats.current.last?Math.round(now-stats.current.last):null,secure:window.isSecureContext}))},[]);
@@ -132,14 +135,21 @@ export default function Home(){
   else permission.current=D?"granted":"unavailable";
   publish({permission:permission.current,signal:permission.current==="denied"?"stale":"waiting"},true);
  }catch{permission.current="denied";publish({permission:"denied",signal:"stale"},true)}};
- return <main className="lab-shell"><header><div><p className="eyebrow">OPTICAL MATERIAL STUDY <span>WEBGL / 01</span></p>
+ const variants=[
+  {label:"CHAMPAGNE / FINE FOIL",index:"01",material:[.08,.72,.11,.55] as [number,number,number,number]},
+  {label:"PETROL / BRUSHED DARK",index:"02",material:[.46,.48,.23,.82] as [number,number,number,number]},
+  {label:"PEARL / SOFT DIFFRACTION",index:"03",material:[.78,.62,.18,.32] as [number,number,number,number]},
+  {label:"PRISM / HARD CHROME",index:"04",material:[1.18,1.05,.09,1.0] as [number,number,number,number]},
+ ];
+ return <main className="lab-shell"><header><div><p className="eyebrow">OPTICAL MATERIAL STUDY <span>WEBGL / 04</span></p>
   <h1>World-Space<br/><i>Hologram</i></h1></div><p className="intro">A metallic diffraction surface.<br/>Lit by a fixed world, not an animation.</p></header>
-  <section className="hero"><div className="axis-label"><span>REAL-TIME REFLECTION</span><i/></div><ReflectiveButton matrix={matrix} onClick={()=>setAlert(true)}/>
-   <div className="material-note"><span>ANISOTROPIC FOIL</span><span>GGX SPECULAR</span><span>WORLD LIGHTS</span></div>
+  <section className="hero"><div className="axis-label"><span>MATERIAL VARIATIONS</span><i/></div><div className="variation-grid">
+   {variants.map(v=><article className="variation" key={v.index}><ReflectiveButton matrix={matrix} label={v.label} index={v.index} material={v.material} onClick={()=>setAlert(v.label)}/></article>)}
+  </div><div className="material-note"><span>RAISED → RECESSED RIM</span><span>GGX SPECULAR</span><span>WORLD LIGHTS</span></div>
   </section><footer><span>DEVICE ATTITUDE → SURFACE NORMAL → REFLECTION VECTOR</span><span>2026</span></footer>
   <HUD data={hud} enable={enable}/>
-  {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(false)}}><div className="alert-card" role="alertdialog" aria-modal="true">
-   <div className="alert-icon">✓</div><p>INTERACTION CONFIRMED</p><h2>Surface activated.</h2><button autoFocus onClick={()=>setAlert(false)}>CLOSE <span>×</span></button>
+  {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true">
+   <div className="alert-icon">✓</div><p>{alert}</p><h2>Surface activated.</h2><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button>
   </div></div>}
  </main>;
 }
