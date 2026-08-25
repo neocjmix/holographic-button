@@ -18,4 +18,4 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 
 ### Changed
 
-- Tightened the shared specular response into a cleaner, environment-tinted metallic highlight with substantially less grain-driven roughness.
+- Reworked the shared specular response as a smooth glass clear coat and moved the fixed key light roughly 45° toward the lower side of the surface.
