@@ -15,6 +15,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 ### Fixed
 
 - Made iOS Safari motion authorization recover existing permission on entry and retry safely on tap when WebKit rejects a non-eligible gesture.
+- Prevented a load-time iOS permission request from blocking the first real interaction, and request only the shared orientation permission instead of racing both sensor APIs.
 
 ### Changed
 
