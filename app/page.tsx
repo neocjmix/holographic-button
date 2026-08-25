@@ -48,7 +48,7 @@ const FS=[
 " vec2 cell=floor(uv*vec2(24.,7.));if(method>2.5)micro=(vec2(hash(cell),hash(cell+7.31))-.5)*.075;",
 " vec3 shapeN=normalize(vec3(p.x*.18,p.y*.38,1.));vec3 n=normalize(vec3(shapeN.xy+grad*ringSlope*.78+micro,1.-abs(ringHeight)*.18));vec3 nw=normalize(worldFromDevice*n);",
 " vec3 v=vec3(0,0,1),vw=normalize(worldFromDevice*v),rw=normalize(reflect(-vw,nw));",
-" vec3 light=normalize(vec3(-.34,.78,.52)),light2=normalize(vec3(.72,-.12,.68));",
+" vec3 light=normalize(vec3(-.10,.16,.982)),light2=normalize(vec3(.72,-.12,.68));",
 " float ndl=max(dot(nw,light),0.),ndl2=max(dot(nw,light2),0.),ndv=max(dot(nw,vw),.001);",
 " vec3 h=normalize(light+vw);float spec=ggx(max(dot(nw,h),0.),mix(material.z,material.z+.11,grain))*ndl;",
 " float fresnel=.18+.82*pow(1.-ndv,5.);vec3 env=environment(rw);",
@@ -57,7 +57,7 @@ const FS=[
 " else if(method<1.5){float streak=.5+.5*sin(uv.x*920.+noise(uv*vec2(8.,37.))*5.);float glint=pow(streak,18.);vec3 petrol=vec3(.018,.055,.068)+spectrum(dot(rw,normalize(vec3(.82,.08,.56)))*1.72+.46)*.24;metal=env*.72+petrol*(.52+.34*ndl)+glint*spectrum(uv.x*.4+incidence)*.34+vec3(spec)*1.12;}",
 " else if(method<2.5){float optical=(1.-abs(incidence))*1.58+noise(uv*vec2(5.,3.))*.07+.18;vec3 pearl=.72+.20*cos(6.28318*(optical*vec3(1.,1.29,1.61)+vec3(.02,.24,.51)));metal=env*.31+pearl*(.64+fresnel*.48)+vec3(spec)*.58;}",
 " else{float facet=hash(cell);float band=dot(rw,normalize(vec3(.67,.29,.68)))*3.15+facet*.18;vec3 prism=spectrum(band);float ribbon=.42+.58*pow(.5+.5*cos(6.28318*band),5.);metal=env*1.02+prism*(.48+.62*ribbon)+vec3(spec)*1.48;}",
-" vec3 shapeNW=normalize(worldFromDevice*shapeN);float shapeNdL=max(dot(shapeNW,light),0.);float bodySpec=min(ggx(max(dot(shapeNW,h),0.),.16)*shapeNdL*.075,2.4);float softSpec=pow(max(dot(shapeNW,h),0.),26.)*.34;metal+=vec3(bodySpec+softSpec)+ndl2*vec3(.075,.025,.045);",
+" vec3 shapeNW=normalize(worldFromDevice*shapeN);float shapeNdL=max(dot(shapeNW,light),0.);float shapeNdH=max(dot(shapeNW,h),0.);float bodySpec=min(ggx(shapeNdH,.18)*shapeNdL*.105,2.2);float keySpec=pow(shapeNdH,92.)*1.05;float softSpec=pow(shapeNdH,18.)*.32;metal+=vec3(bodySpec+keySpec+softSpec)+ndl2*vec3(.075,.025,.045);",
 " float raised=max(ringHeight,0.),recessed=max(-ringHeight,0.);metal+=raised*(environment(rw)*1.25+vec3(.13));",
 " metal*=1.-recessed*.34;metal+=pow(max(ringSlope,0.),6.)*vec3(.28,.3,.33);",
 " float vignette=1.-dot(uv-.5,uv-.5)*.34;metal*=vignette;metal=metal/(metal+vec3(.78));",
@@ -147,7 +147,7 @@ export default function Home(){
   <section className="hero"><div className="axis-label"><span>MATERIAL VARIATIONS</span><i/></div><div className="variation-grid">
    {variants.map(v=><article className="variation" key={v.index}><ReflectiveButton matrix={matrix} label={v.label} index={v.index} material={v.material} method={v.method} onClick={()=>setAlert(v.label)}/></article>)}
   </div><div className="material-note"><span>RECESSED → RAISED RIM</span><span>BODY SPECULAR</span><span>WORLD LIGHTS</span></div>
-  </section><footer><span>DEVICE ATTITUDE → SURFACE NORMAL → REFLECTION VECTOR</span><span>2026</span></footer>
+  </section><footer><span>DEVICE ATTITUDE → SURFACE NORMAL → REFLECTION VECTOR<br/><a href="https://dribbble.com/shots/25057911-Holographic-CTA" target="_blank" rel="noreferrer">INSPIRED BY RTHWIK GOPINATH — HOLOGRAPHIC CTA ↗</a></span><span>2026</span></footer>
   <HUD data={hud} enable={enable}/>
   {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true">
    <div className="alert-icon">✓</div><p>{alert}</p><h2>Surface activated.</h2><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button>
