@@ -2,6 +2,13 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning.
 
+## 0.1.2 — 2026-08-25
+
+### Changed
+
+- Moved the package, issues, release workflow, and demo to the dedicated `neocjmix/holographic-button` repository.
+- Updated npm package metadata and provenance links for the new repository.
+
 ## 0.1.1 — 2026-08-25
 
 ### Fixed

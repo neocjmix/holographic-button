@@ -2,7 +2,7 @@
 
 A physically directed holographic WebGL button for React. Its reflective surface responds to device attitude on mobile and pointer movement on desktop while the lights remain fixed in world space.
 
-[Live demo](https://neocjmix.github.io/holographic-cta-lab/) · [Source](https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react) · MIT
+[Live demo](https://neocjmix.github.io/holographic-button/) · [Source](https://github.com/neocjmix/holographic-button) · MIT
 
 > [!WARNING]
 > This implementation and its documentation were generated entirely by AI and have not received human code review. Treat v0.x as experimental, inspect the source, and perform your own security and accessibility review before production use.
@@ -109,18 +109,18 @@ Modern browsers with WebGL 1 and React 18.2 or newer. Device orientation require
 
 ## Releasing
 
-The `Publish Holographic Button` GitHub Actions workflow runs when a SemVer tag matching `v*.*.*` is pushed. It requires the tag version to match `package.json`, verifies that the tagged commit belongs to `master`, installs locked dependencies, typechecks, builds, inspects the package tarball, publishes to npm, and then creates a GitHub Release with generated notes.
+The `Publish Holographic Button` GitHub Actions workflow runs when a SemVer tag matching `v*.*.*` is pushed. It requires the tag version to match `package.json`, verifies that the tagged commit belongs to `main`, installs locked dependencies, typechecks, builds, inspects the package tarball, publishes to npm, and then creates a GitHub Release with generated notes.
 
 For a normal release, run from this package directory with a clean worktree:
 
 ```bash
 npm version patch # or: minor / major
-git push origin master --follow-tags
+git push origin main --follow-tags
 ```
 
 Do not create the GitHub Release manually; the workflow creates it only after npm publication succeeds. Re-running a tag whose npm version or GitHub Release already exists is safe because those operations are skipped.
 
-The first-ever npm publish requires a granular npm automation token stored as the repository secret `NPM_TOKEN`. After the package exists, configure npm Trusted Publishing for GitHub Actions with owner `neocjmix`, repository `neocjmix.github.io`, and workflow filename `publish-holographic-button.yml`; then delete `NPM_TOKEN`. Subsequent publishes use short-lived OIDC credentials and automatic provenance.
+Configure npm Trusted Publishing for GitHub Actions with owner `neocjmix`, repository `holographic-button`, and workflow filename `publish-holographic-button.yml`. Releases use short-lived OIDC credentials and automatic provenance; no long-lived npm token is stored in GitHub.
 
 ## Credits
 

@@ -19,7 +19,7 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: holographic-cta-lab/react
+        working-directory: components/holographic-button
     outputs:
       package_name: ${{ steps.package.outputs.name }}
       package_version: ${{ steps.package.outputs.version }}
@@ -54,9 +54,9 @@ jobs:
             exit 1
           fi
 
-          git fetch origin master
-          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/master; then
-            echo "Release tag must point to a commit contained in origin/master." >&2
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$RELEASE_SHA" origin/main; then
+            echo "Release tag must point to a commit contained in origin/main." >&2
             exit 1
           fi
 

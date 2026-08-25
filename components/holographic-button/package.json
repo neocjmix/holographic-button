@@ -1,6 +1,6 @@
 {
   "name": "@neocjmix/holographic-button",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A world-lit holographic WebGL button for React, driven by device attitude or pointer movement.",
   "license": "MIT",
   "author": "ChanJin Park",
@@ -46,12 +46,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/neocjmix/neocjmix.github.io.git",
-    "directory": "holographic-cta-lab/react"
+    "url": "git+https://github.com/neocjmix/holographic-button.git",
+    "directory": "components/holographic-button"
   },
-  "homepage": "https://neocjmix.github.io/holographic-cta-lab/",
+  "homepage": "https://neocjmix.github.io/holographic-button/",
   "bugs": {
-    "url": "https://github.com/neocjmix/neocjmix.github.io/issues"
+    "url": "https://github.com/neocjmix/holographic-button/issues"
   },
   "keywords": [
     "react",

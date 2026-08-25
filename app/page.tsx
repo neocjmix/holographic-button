@@ -46,10 +46,10 @@ export default function Home(){
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v0.1.1</em></a>
-   <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v0.1.2</em></a>
+   <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. Treat v0.1.1 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. Treat v0.1.2 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -132,6 +132,6 @@ export default function Home(){
    <p>READY FOR A LITTLE TOO MUCH BUTTON?</p><h2>Give the interface<br/><i>a surface.</i></h2><a href="#install">Install {PACKAGE} <span>↗</span></a>
   </section>
 
-  <footer><div><span className="brand-mark"/><b>Holographic Button</b><small>MIT © 2026 ChanJin Park</small></div><p>Inspired by <a href="https://x.com/luciascarlet/status/1930614317541474598" target="_blank" rel="noreferrer">Lucia Scarlet’s holographic controls ↗</a></p><div><a href="#top">Top ↑</a><a href="https://github.com/neocjmix/neocjmix.github.io/tree/master/holographic-cta-lab/react" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+  <footer><div><span className="brand-mark"/><b>Holographic Button</b><small>MIT © 2026 ChanJin Park</small></div><p>Inspired by <a href="https://x.com/luciascarlet/status/1930614317541474598" target="_blank" rel="noreferrer">Lucia Scarlet’s holographic controls ↗</a></p><div><a href="#top">Top ↑</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
  </main>;
 }
