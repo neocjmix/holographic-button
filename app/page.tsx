@@ -88,21 +88,104 @@ function WebglButton({tilt}:{tilt:Tilt}){
  return <span className="webgl-holo holo-surface"><canvas ref={ref}/><span className="webgl-caustic"/><Copy label="ENTER" n="04"/></span>;
 }
 
+type SensorHud={
+ permission:"idle"|"requesting"|"granted"|"denied"|"unavailable";
+ signal:"waiting"|"live"|"stale";source:"none"|"orientation"|"motion"|"pointer";
+ alpha:number|null;beta:number|null;gamma:number|null;x:number;y:number;
+ events:number;hz:number;angle:number;age:number|null;secure:boolean;
+};
+const number=(n:number|null,digits=1)=>n===null?"—":n.toFixed(digits);
+
+function SensorHUD({data}:{data:SensorHud}){
+ return <aside className={"sensor-hud "+data.signal} aria-live="polite">
+  <div className="hud-head"><span className="hud-led"/><b>SENSOR INPUT</b><em>{data.signal==="live"?"RECEIVING":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em></div>
+  <div className="hud-grid">
+   <span>PERMISSION</span><strong>{data.permission}</strong><span>SOURCE</span><strong>{data.source}</strong>
+   <span>EVENTS</span><strong>{data.events}</strong><span>RATE</span><strong>{data.hz.toFixed(1)} Hz</strong>
+   <span>ALPHA</span><strong>{number(data.alpha)}°</strong><span>BETA</span><strong>{number(data.beta)}°</strong>
+   <span>GAMMA</span><strong>{number(data.gamma)}°</strong><span>SCREEN</span><strong>{data.angle}°</strong>
+   <span>OUTPUT X</span><strong>{data.x.toFixed(3)}</strong><span>OUTPUT Y</span><strong>{data.y.toFixed(3)}</strong>
+   <span>LAST EVENT</span><strong>{data.age===null?"—":data.age+" ms"}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
+  </div>
+ </aside>;
+}
+
 export default function Home(){
  const[tilt,setTilt]=useState<Tilt>({x:0,y:0}),[motion,setMotion]=useState<"idle"|"active"|"denied">("idle"),[alert,setAlert]=useState<Kind|null>(null);
- const target=useRef<Tilt>({x:0,y:0});useEffect(()=>{let raf=0;const tick=()=>{setTilt(p=>({x:p.x+(target.current.x-p.x)*.11,
-  y:p.y+(target.current.y-p.y)*.11}));raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf)},[]);
+ const[hud,setHud]=useState<SensorHud>({permission:"idle",signal:"waiting",source:"none",alpha:null,beta:null,gamma:null,
+  x:0,y:0,events:0,hz:0,angle:0,age:null,secure:true});
+ const target=useRef<Tilt>({x:0,y:0}),baseline=useRef<{beta:number;gamma:number}|null>(null);
+ const telemetry=useRef({events:0,first:0,last:0,lastPaint:0,lastOrientation:0});
+ const permission=useRef<SensorHud["permission"]>("idle");
+
+ const publish=useCallback((values:Partial<SensorHud>,force=false)=>{
+  const now=performance.now();if(!force&&now-telemetry.current.lastPaint<80)return;telemetry.current.lastPaint=now;
+  const elapsed=Math.max(1,now-telemetry.current.first);
+  setHud(old=>({...old,...values,events:telemetry.current.events,hz:telemetry.current.events*1000/elapsed,
+   age:telemetry.current.last?Math.round(now-telemetry.current.last):null,permission:permission.current,
+   secure:window.isSecureContext}));
+ },[]);
+
+ const consume=useCallback((beta:number,gamma:number,alpha:number|null,source:"orientation"|"motion")=>{
+  if(!Number.isFinite(beta)||!Number.isFinite(gamma))return;
+  const now=performance.now();if(!baseline.current)baseline.current={beta,gamma};
+  const db=beta-baseline.current.beta,dg=gamma-baseline.current.gamma;
+  const angle=((screen.orientation?.angle??Number((window as Window&{orientation?:number}).orientation)??0)+360)%360;
+  let dx=dg,dy=db;if(angle===90){dx=-db;dy=dg}else if(angle===270){dx=db;dy=-dg}else if(angle===180){dx=-dg;dy=-db}
+  const output={x:clamp(dx/18),y:clamp(dy/18)};target.current=output;
+  telemetry.current.events++;telemetry.current.first ||= now;telemetry.current.last=now;
+  if(source==="orientation")telemetry.current.lastOrientation=now;
+  permission.current="granted";setMotion("active");
+  publish({signal:"live",source,alpha,beta,gamma,x:output.x,y:output.y,angle},false);
+ },[publish]);
+
+ useEffect(()=>{let raf=0;const tick=()=>{setTilt(p=>({x:p.x+(target.current.x-p.x)*.14,
+  y:p.y+(target.current.y-p.y)*.14}));raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf)},[]);
+
+ useEffect(()=>{
+  setHud(h=>({...h,secure:window.isSecureContext}));
+  const orientation=(e:DeviceOrientationEvent)=>{
+   if(typeof e.beta==="number"&&typeof e.gamma==="number")consume(e.beta,e.gamma,typeof e.alpha==="number"?e.alpha:null,"orientation");
+  };
+  const motionFallback=(e:DeviceMotionEvent)=>{
+   if(performance.now()-telemetry.current.lastOrientation<600)return;const g=e.accelerationIncludingGravity;
+   if(!g||typeof g.x!=="number"||typeof g.y!=="number"||typeof g.z!=="number")return;
+   const gamma=Math.atan2(g.x,Math.hypot(g.y,g.z))*180/Math.PI;
+   const beta=Math.atan2(-g.y,g.z)*180/Math.PI;consume(beta,gamma,null,"motion");
+  };
+  addEventListener("deviceorientation",orientation,true);
+  addEventListener("deviceorientationabsolute",orientation as EventListener,true);
+  addEventListener("devicemotion",motionFallback,true);
+  const timer=setInterval(()=>{const now=performance.now(),age=telemetry.current.last?Math.round(now-telemetry.current.last):null;
+   setHud(h=>({...h,age,signal:age!==null&&age<900?"live":permission.current==="granted"?"stale":"waiting"}))},500);
+  return()=>{removeEventListener("deviceorientation",orientation,true);removeEventListener("deviceorientationabsolute",orientation as EventListener,true);
+   removeEventListener("devicemotion",motionFallback,true);clearInterval(timer)};
+ },[consume]);
+
  useEffect(()=>{const move=(e:PointerEvent)=>{if(motion==="active"||e.pointerType==="touch")return;
-  target.current={x:clamp((e.clientX/innerWidth-.5)*2),y:clamp((e.clientY/innerHeight-.5)*2)}};addEventListener("pointermove",move,{passive:true});
-  return()=>removeEventListener("pointermove",move)},[motion]);
- const orientation=useCallback((e:DeviceOrientationEvent)=>{target.current={x:clamp((e.gamma||0)/28),y:clamp(((e.beta||0)-35)/32)}},[]);
- const enable=async()=>{try{const D=DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
-  const p=typeof D.requestPermission==="function"?await D.requestPermission():"granted";if(p!=="granted"){setMotion("denied");return}
-  addEventListener("deviceorientation",orientation,true);setMotion("active")}catch{setMotion("denied")}};
- useEffect(()=>()=>removeEventListener("deviceorientation",orientation,true),[orientation]);
+  const output={x:clamp((e.clientX/innerWidth-.5)*2),y:clamp((e.clientY/innerHeight-.5)*2)};target.current=output;
+  publish({source:"pointer",x:output.x,y:output.y},false)};addEventListener("pointermove",move,{passive:true});
+  return()=>removeEventListener("pointermove",move)},[motion,publish]);
+
+ const enable=async()=>{
+  if(motion==="active"){baseline.current=null;target.current={x:0,y:0};publish({signal:"waiting"},true);return}
+  permission.current="requesting";publish({permission:"requesting",signal:"waiting"},true);
+  try{
+   const D=window.DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
+   const M=window.DeviceMotionEvent as typeof DeviceMotionEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
+   if(!D&&!M){permission.current="unavailable";setMotion("denied");publish({permission:"unavailable",signal:"stale"},true);return}
+   const requests:Promise<string>[]=[];
+   if(typeof D?.requestPermission==="function")requests.push(D.requestPermission());
+   if(typeof M?.requestPermission==="function")requests.push(M.requestPermission());
+   const results=requests.length?await Promise.all(requests):["granted"];
+   if(results.some(result=>result==="granted")){permission.current="granted";baseline.current=null;setMotion("active");publish({permission:"granted",signal:"waiting"},true)}
+   else{permission.current="denied";setMotion("denied");publish({permission:"denied",signal:"stale"},true)}
+  }catch{permission.current="denied";setMotion("denied");publish({permission:"denied",signal:"stale"},true)}
+ };
+
  return <main className="lab-shell"><header className="lab-header"><div><p className="eyebrow">INTERACTION MATERIAL STUDY <span>№ 004</span></p>
-  <h1>Holographic<br/><i>CTA</i> Lab</h1></div><div className="header-tools"><button className={"motion-toggle "+motion} onClick={enable} disabled={motion==="active"}>
-  <span className="motion-dot"/>{motion==="active"?"MOTION LIVE":motion==="denied"?"MOTION BLOCKED":"ENABLE MOTION"}</button>
+  <h1>Holographic<br/><i>CTA</i> Lab</h1></div><div className="header-tools"><button className={"motion-toggle "+motion} onClick={enable}>
+  <span className="motion-dot"/>{motion==="active"?"RECENTER":motion==="denied"?"TRY MOTION AGAIN":"ENABLE MOTION"}</button>
   <p>Tilt your phone<br/>or move the pointer.</p></div></header>
   <section className="button-stack" aria-label="Four holographic CTA implementations">
    <Frame kind="CSS" tilt={tilt} activate={setAlert}><CssButton/></Frame><Frame kind="SVG" tilt={tilt} activate={setAlert}><SvgButton tilt={tilt}/></Frame>
@@ -111,5 +194,5 @@ export default function Home(){
   {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
    <div className="alert-icon">✓</div><p className="alert-kicker">INTERACTION CONFIRMED</p><h2 id="alert-title">{alert} is alive.</h2>
    <p>The holographic surface responded as a real CTA button.</p><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button>
-  </div></div>}</main>;
+  </div></div>}<SensorHUD data={hud}/></main>;
 }
