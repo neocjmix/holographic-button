@@ -90,7 +90,7 @@ function ReflectiveButton({matrix,onClick,label,index,material,method}:{matrix:R
   </span></button>;
 }
 
-function HUD({data,enable}:{data:Telemetry;enable:()=>void}){
+function HUD({data}:{data:Telemetry}){
  const[expanded,setExpanded]=useState(true);
  return <aside className={"sensor-hud "+data.signal+(expanded?"":" collapsed")}>
   <button className="hud-head" onClick={()=>setExpanded(v=>!v)} aria-expanded={expanded} aria-label={expanded?"Collapse sensor HUD":"Expand sensor HUD"}><span className="hud-led"/><b>WORLD ATTITUDE</b><em>{data.signal==="live"?"LIVE":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em><i className="hud-caret">⌄</i></button>
@@ -100,7 +100,7 @@ function HUD({data,enable}:{data:Telemetry;enable:()=>void}){
    <span>GAMMA / ROLL</span><strong>{fmt(data.gamma)}</strong><span>LAST</span><strong>{data.age===null?"—":data.age+" ms"}</strong>
    <span>NORMAL X</span><strong>{data.normal[0].toFixed(3)}</strong><span>NORMAL Y</span><strong>{data.normal[1].toFixed(3)}</strong>
    <span>NORMAL Z</span><strong>{data.normal[2].toFixed(3)}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
-  </div><button className="hud-motion" onClick={enable} disabled={data.signal==="live"}><span>◉</span>{data.signal==="live"?"MOTION LIVE":"ENABLE MOTION"}</button></div>
+  </div></div>
  </aside>;
 }
 
@@ -131,12 +131,16 @@ export default function Home(){
  useEffect(()=>{const move=(e:PointerEvent)=>{if(hud.signal==="live")return;pointer.current={x:(e.clientX/innerWidth-.5)*70,y:(e.clientY/innerHeight-.5)*70};
    matrix.current=attitudeMatrix(pointer.current.x,pointer.current.y*.65,pointer.current.x*.45,0);publish({source:"pointer",alpha:pointer.current.x,beta:pointer.current.y*.65,gamma:pointer.current.x*.45,normal:surfaceNormal(matrix.current)},false)};
   addEventListener("pointermove",move,{passive:true});return()=>removeEventListener("pointermove",move)},[hud.signal,publish]);
- const enable=async()=>{permission.current="requesting";publish({permission:"requesting",signal:"waiting"},true);try{
-  const D=window.DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
-  if(typeof D?.requestPermission==="function"){const result=await D.requestPermission();permission.current=result==="granted"?"granted":"denied"}
-  else permission.current=D?"granted":"unavailable";
-  publish({permission:permission.current,signal:permission.current==="denied"?"stale":"waiting"},true);
- }catch{permission.current="denied";publish({permission:"denied",signal:"stale"},true)}};
+ useEffect(()=>{const O=window.DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
+  const M=window.DeviceMotionEvent as typeof DeviceMotionEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
+  const needsGesture=typeof O?.requestPermission==="function"||typeof M?.requestPermission==="function";
+  if(!needsGesture){permission.current=O?"granted":"unavailable";publish({permission:permission.current,signal:"waiting"},true);return}
+  const request=async()=>{permission.current="requesting";publish({permission:"requesting",signal:"waiting"},true);try{
+   const asks:Promise<"granted"|"denied">[]=[];if(typeof O.requestPermission==="function")asks.push(O.requestPermission());if(typeof M.requestPermission==="function")asks.push(M.requestPermission());
+   const results=await Promise.all(asks);permission.current=results.every(v=>v==="granted")?"granted":"denied";publish({permission:permission.current,signal:permission.current==="denied"?"stale":"waiting"},true);
+  }catch{permission.current="denied";publish({permission:"denied",signal:"stale"},true)}};
+  const firstTouch=()=>void request();addEventListener("pointerdown",firstTouch,{once:true,capture:true});return()=>removeEventListener("pointerdown",firstTouch,true);
+ },[publish]);
  const variants=[
   {label:"SPECTRAL FILM / BROAD SWEEP",index:"01",method:0,material:[.08,.72,.11,.55] as [number,number,number,number]},
   {label:"PETROL / BRUSHED FOIL",index:"02",method:1,material:[.46,.48,.23,.82] as [number,number,number,number]},
@@ -149,7 +153,7 @@ export default function Home(){
    {variants.map(v=><article className="variation" key={v.index}><ReflectiveButton matrix={matrix} label={v.label} index={v.index} material={v.material} method={v.method} onClick={()=>setAlert(v.label)}/></article>)}
   </div><div className="material-note"><span>RECESSED → RAISED RIM</span><span>BODY SPECULAR</span><span>WORLD LIGHTS</span></div>
   </section><footer><span>DEVICE ATTITUDE → SURFACE NORMAL → REFLECTION VECTOR<br/><a href="https://dribbble.com/shots/25057911-Holographic-CTA" target="_blank" rel="noreferrer">INSPIRED BY RTHWIK GOPINATH — HOLOGRAPHIC CTA ↗</a></span><span>2026</span></footer>
-  <HUD data={hud} enable={enable}/>
+  <HUD data={hud}/>
   {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true">
    <div className="alert-icon">✓</div><p>{alert}</p><h2>Surface activated.</h2><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button>
   </div></div>}
