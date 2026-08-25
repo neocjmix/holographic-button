@@ -1,199 +1,145 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
-type Tilt={x:number;y:number}; type Kind="CSS"|"SVG"|"Canvas"|"WebGL";
-const clamp=(n:number)=>Math.max(-1,Math.min(1,n));
 
-function Frame({kind,tilt,children,activate}:{kind:Kind;tilt:Tilt;children:React.ReactNode;activate:(k:Kind)=>void}){
- const style={"--rx":(-tilt.y*9)+"deg","--ry":(tilt.x*12)+"deg","--mx":(50+tilt.x*42)+"%",
-  "--my":(50+tilt.y*42)+"%","--shine":(tilt.x*34+tilt.y*17)+"deg"} as React.CSSProperties;
- return <article className="demo-row"><div className="tech-label"><span>{kind}</span><i/></div>
-  <button className="tilt-stage" style={style} onClick={()=>activate(kind)} aria-label={"Activate "+kind+" holographic button"}>
-   <span className="button-shadow"/><span className="button-plane">{children}</span></button></article>;
-}
-const Copy=({label,n}:{label:string;n:string})=><span className="cta-copy"><b>{label}</b><em>{n}</em></span>;
-function CssButton(){return <span className="css-holo holo-surface"><span className="css-spectrum"/>
- <span className="microgrid"/><span className="edge-light"/><Copy label="EXPLORE" n="01"/></span>}
+type Permission="idle"|"requesting"|"granted"|"denied"|"unavailable";
+type Telemetry={permission:Permission;signal:"waiting"|"live"|"stale";source:"none"|"orientation"|"motion"|"pointer";
+ alpha:number|null;beta:number|null;gamma:number|null;events:number;hz:number;age:number|null;normal:[number,number,number];secure:boolean};
+const rad=(n:number)=>n*Math.PI/180;
+const fmt=(n:number|null)=>n===null?"—":n.toFixed(1)+"°";
 
-function SvgButton({tilt}:{tilt:Tilt}){
- const gx=50+tilt.x*42,gy=50+tilt.y*42;
- return <span className="svg-holo holo-surface"><svg viewBox="0 0 720 190" preserveAspectRatio="none" aria-hidden="true">
-  <defs><linearGradient id="spectrum" x1={(gx-55)+"%"} y1={(gy-45)+"%"} x2={(gx+55)+"%"} y2={(gy+45)+"%"}>
-   <stop offset="0" stopColor="#090d18"/><stop offset=".16" stopColor="#ff67ce"/><stop offset=".32" stopColor="#675cff"/>
-   <stop offset=".49" stopColor="#54e9ff"/><stop offset=".64" stopColor="#dfff6a"/><stop offset=".8" stopColor="#ff8d52"/>
-   <stop offset="1" stopColor="#111526"/></linearGradient>
-   <radialGradient id="glint" cx={gx+"%"} cy={gy+"%"} r="52%"><stop offset="0" stopColor="white" stopOpacity=".94"/>
-    <stop offset=".1" stopColor="#caffff" stopOpacity=".56"/><stop offset=".3" stopColor="#795cff" stopOpacity=".16"/>
-    <stop offset="1" stopColor="#000" stopOpacity="0"/></radialGradient>
-   <filter id="foil" x="-10%" y="-30%" width="120%" height="160%"><feTurbulence type="fractalNoise" baseFrequency=".012 .18" numOctaves="3" seed="7" result="grain"/>
-    <feColorMatrix in="grain" values="1 0 0 0 .1 0 1 0 0 .12 0 0 1 0 .16 0 0 0 .42 0" result="colored"/>
-    <feBlend in="SourceGraphic" in2="colored" mode="screen" result="base"/><feSpecularLighting in="grain" surfaceScale="7"
-     specularConstant="1.1" specularExponent="28" lightingColor="#e9ffff" result="spec">
-     <fePointLight x={360+tilt.x*290} y={95+tilt.y*100} z="95"/></feSpecularLighting>
-    <feComposite in="spec" in2="SourceAlpha" operator="in" result="clip"/><feBlend in="base" in2="clip" mode="screen"/></filter>
-   <filter id="bump" x="-5%" y="-15%" width="110%" height="130%"><feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
-    <feSpecularLighting in="blur" surfaceScale="8" specularConstant="1.2" specularExponent="24" lightingColor="white" result="shine">
-     <feDistantLight azimuth={230+tilt.x*60} elevation="48"/></feSpecularLighting>
-    <feComposite in="shine" in2="SourceAlpha" operator="in" result="shineClip"/><feBlend in="SourceGraphic" in2="shineClip" mode="screen"/></filter>
-  </defs><rect x="4" y="4" width="712" height="182" rx="91" fill="url(#spectrum)" filter="url(#foil)"/>
-  <rect x="5" y="5" width="710" height="180" rx="90" fill="url(#glint)"/>
-  <rect x="9" y="9" width="702" height="172" rx="86" fill="none" stroke="rgba(255,255,255,.6)" strokeWidth="5" filter="url(#bump)"/>
-  <path d="M88 139 C202 66 403 46 637 89" fill="none" stroke="white" strokeOpacity=".16" strokeWidth="2"/>
- </svg><Copy label="DISCOVER" n="02"/></span>;
+function mul(a:number[],b:number[]){
+ const o=new Array(9).fill(0);for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++)o[r*3+c]+=a[r*3+k]*b[k*3+c];return o;
 }
-
-function CanvasButton({tilt}:{tilt:Tilt}){
- const ref=useRef<HTMLCanvasElement>(null);
- useEffect(()=>{const c=ref.current;if(!c)return;const r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);
-  const w=Math.max(1,Math.round(r.width*d)),h=Math.max(1,Math.round(r.height*d));if(c.width!==w||c.height!==h){c.width=w;c.height=h}
-  const x=c.getContext("2d");if(!x)return;x.clearRect(0,0,w,h);x.save();x.beginPath();x.roundRect(2*d,2*d,w-4*d,h-4*d,h/2);x.clip();
-  const a=Math.atan2(tilt.y+.28,tilt.x+.16),cx=w*(.5+tilt.x*.34),cy=h*(.5+tilt.y*.28),len=Math.hypot(w,h);
-  const g=x.createLinearGradient(cx-Math.cos(a)*len,cy-Math.sin(a)*len,cx+Math.cos(a)*len,cy+Math.sin(a)*len);
-  const stops:Array<[number,string]>=[[0,"#080a12"],[.16,"#6c4bff"],[.31,"#ff56c7"],[.46,"#ffd36f"],[.59,"#6effd0"],
-   [.73,"#54a7ff"],[.88,"#bd5cff"],[1,"#090b14"]];stops.forEach(s=>g.addColorStop(s[0],s[1]));x.fillStyle=g;x.fillRect(0,0,w,h);
-  const img=x.getImageData(0,0,w,h),data=img.data;for(let py=0;py<h;py++)for(let px=0;px<w;px++){const i=(py*w+px)*4;if(!data[i+3])continue;
-   const wave=Math.sin(px*.074+py*.12)+Math.sin(px*.013-py*.22)*.55;
-   const grain=Math.abs((Math.sin(px*12.9898+py*78.233)*43758.5453)%1),dx=(px-cx)/w,dy=(py-cy)/h;
-   const glint=Math.max(0,1-Math.sqrt(dx*dx+dy*dy)*6),lift=wave*5+grain*8+glint*105;
-   data[i]=Math.min(255,data[i]+lift);data[i+1]=Math.min(255,data[i+1]+lift*1.08);data[i+2]=Math.min(255,data[i+2]+lift*1.2)}
-  x.putImageData(img,0,0);const bloom=x.createRadialGradient(cx,cy,0,cx,cy,w*.27);
-  bloom.addColorStop(0,"rgba(255,255,255,.82)");bloom.addColorStop(.12,"rgba(180,255,255,.38)");bloom.addColorStop(1,"rgba(30,0,255,0)");
-  x.globalCompositeOperation="screen";x.fillStyle=bloom;x.fillRect(0,0,w,h);x.globalCompositeOperation="source-over";
-  const rim=x.createLinearGradient(0,0,0,h);rim.addColorStop(0,"rgba(255,255,255,.95)");rim.addColorStop(.14,"rgba(255,255,255,.1)");
-  rim.addColorStop(.78,"rgba(0,0,0,.5)");rim.addColorStop(1,"rgba(255,255,255,.55)");x.strokeStyle=rim;x.lineWidth=5*d;
-  x.beginPath();x.roundRect(4*d,4*d,w-8*d,h-8*d,h/2);x.stroke();x.restore()},[tilt]);
- return <span className="canvas-holo holo-surface"><canvas ref={ref}/><Copy label="CONTINUE" n="03"/></span>;
+function attitudeMatrix(alpha:number,beta:number,gamma:number,screenAngle:number){
+ const a=rad(alpha),b=rad(beta),g=rad(gamma),s=rad(-screenAngle),ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),
+  cg=Math.cos(g),sg=Math.sin(g),cs=Math.cos(s),ss=Math.sin(s);
+ const rz=[ca,-sa,0,sa,ca,0,0,0,1],rx=[1,0,0,0,cb,-sb,0,sb,cb],ry=[cg,0,sg,0,1,0,-sg,0,cg],screen=[cs,-ss,0,ss,cs,0,0,0,1];
+ const m=mul(mul(mul(rz,rx),ry),screen);
+ return new Float32Array([m[0],m[3],m[6],m[1],m[4],m[7],m[2],m[5],m[8]]);
 }
+function surfaceNormal(m:Float32Array):[number,number,number]{return[m[6],m[7],m[8]]}
 
 const VS="attribute vec2 position;varying vec2 uv;void main(){uv=position*.5+.5;gl_Position=vec4(position,0.,1.);}";
-const FS="precision highp float;varying vec2 uv;uniform vec2 tilt,resolution;"+
-"float rr(vec2 p,vec2 b,float r){vec2 q=abs(p)-b+r;return min(max(q.x,q.y),0.)+length(max(q,0.))-r;}"+
-"vec3 spectral(float x){return .55+.45*cos(6.28318*(x+vec3(.00,.33,.67)));}"+
-"float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}"+
-"void main(){vec2 p=uv-.5;float a=resolution.x/resolution.y;p.x*=a;float d=rr(p,vec2(a*.485,.465),.44);"+
-"float aa=fwidth(d)*1.5,alpha=1.-smoothstep(-aa,aa,d);if(alpha<.01)discard;vec2 light=vec2(.5)+tilt*vec2(.34,.28),v=uv-light;"+
-"float ang=atan(v.y,v.x),rad=length(v),film=uv.x*1.9+uv.y*.8+tilt.x*.9-tilt.y*.55+sin(uv.y*46.+tilt.x*5.)*.032+sin(uv.x*17.-uv.y*9.)*.055;"+
-"vec3 c=mix(vec3(.018,.022,.04),spectral(film*1.12+sin(ang*2.)*.07),.63+pow(clamp(rad*1.9,0.,1.),2.2)*.22);"+
-"c=mix(c,spectral(film*.63-rad*1.7+.26),.25);float glint=pow(max(0.,1.-rad*4.1),4.),rim=1.-smoothstep(-.055,-.004,d);"+
-"c+=glint*vec3(1.3,1.55,1.75)+rim*vec3(.58,.7,.82);c+=hash(floor(uv*resolution*.55))*.07+(.5+.5*sin((uv.x*resolution.x+uv.y*37.)*.22))*.025;"+
-"c*=.78+(.5-uv.y)*.25;gl_FragColor=vec4(c,alpha);}";
-function makeShader(gl:WebGLRenderingContext,type:number,source:string){const s=gl.createShader(type)!;gl.shaderSource(s,source);gl.compileShader(s);return s}
-function WebglButton({tilt}:{tilt:Tilt}){
- const ref=useRef<HTMLCanvasElement>(null);useEffect(()=>{const c=ref.current;if(!c)return;const gl=c.getContext("webgl",{antialias:true,alpha:true});if(!gl)return;
-  const r=c.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);const p=gl.createProgram()!;
-  gl.attachShader(p,makeShader(gl,gl.VERTEX_SHADER,VS));gl.attachShader(p,makeShader(gl,gl.FRAGMENT_SHADER,FS));gl.linkProgram(p);gl.useProgram(p);
-  const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
-  const pos=gl.getAttribLocation(p,"position");gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
-  gl.uniform2f(gl.getUniformLocation(p,"tilt"),tilt.x,tilt.y);gl.uniform2f(gl.getUniformLocation(p,"resolution"),c.width,c.height);
-  gl.viewport(0,0,c.width,c.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6)},[tilt]);
- return <span className="webgl-holo holo-surface"><canvas ref={ref}/><span className="webgl-caustic"/><Copy label="ENTER" n="04"/></span>;
+const FS=[
+"#extension GL_OES_standard_derivatives : enable",
+"precision highp float;varying vec2 uv;uniform vec2 resolution;uniform mat3 worldFromDevice;uniform float time;",
+"float sdRoundRect(vec2 p,vec2 b,float r){vec2 q=abs(p)-b+r;return min(max(q.x,q.y),0.)+length(max(q,0.))-r;}",
+"float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}",
+"float noise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1)),f.x),f.y);}",
+"vec3 spectrum(float t){vec3 c=.5+.5*cos(6.2831853*(t+vec3(.00,.67,.33)));return pow(c,vec3(1.35));}",
+"float ggx(float ndh,float rough){float a=rough*rough,a2=a*a,d=ndh*ndh*(a2-1.)+1.;return a2/(3.14159*d*d);}",
+"vec3 environment(vec3 r){",
+" vec3 col=mix(vec3(.012,.014,.019),vec3(.095,.105,.125),smoothstep(-.35,.7,r.y));",
+" float horizon=exp(-pow(abs(r.y+.08)*7.,2.));col+=horizon*vec3(.10,.115,.13);",
+" vec3 boxDir=normalize(vec3(-.32,.72,.61));float soft=pow(max(dot(r,boxDir),0.),46.);",
+" float core=pow(max(dot(r,boxDir),0.),240.);col+=soft*vec3(.56,.60,.64)+core*vec3(2.4,2.15,1.8);",
+" float sideA=pow(max(dot(r,normalize(vec3(.88,.05,.47))),0.),90.);",
+" float sideB=pow(max(dot(r,normalize(vec3(-.86,-.12,.5))),0.),110.);col+=sideA*vec3(.32,.08,.13)+sideB*vec3(.06,.13,.27);",
+" float ceiling=smoothstep(.72,.92,r.y)*(.55+.45*sin(atan(r.z,r.x)*5.));col+=ceiling*vec3(.22,.235,.25);return col;}",
+"void main(){",
+" vec2 p=uv-.5;float aspect=resolution.x/resolution.y;p.x*=aspect;",
+" float d=sdRoundRect(p,vec2(aspect*.488,.465),.43);float aa=max(fwidth(d)*1.5,.0015);float alpha=1.-smoothstep(-aa,aa,d);if(alpha<.01)discard;",
+" vec2 grad=normalize(vec2(dFdx(d),dFdy(d))+vec2(.00001));float edge=1.-smoothstep(0.,.075,-d);",
+" float grain=noise(uv*vec2(720.,115.));float brush=sin(uv.x*1380.+noise(uv*vec2(7.,29.))*8.);",
+" vec2 micro=vec2(dFdx(grain),dFdy(grain))*.16+vec2(brush*.006,sin(uv.x*71.+uv.y*23.)*.004);",
+" vec3 n=normalize(vec3(grad*edge*.82+micro,mix(1.,.48,edge)));vec3 nw=normalize(worldFromDevice*n);",
+" vec3 v=vec3(0,0,1),vw=normalize(worldFromDevice*v),rw=normalize(reflect(-vw,nw));",
+" vec3 light=normalize(vec3(-.34,.78,.52)),light2=normalize(vec3(.72,-.12,.68));",
+" float ndl=max(dot(nw,light),0.),ndl2=max(dot(nw,light2),0.),ndv=max(dot(nw,vw),.001);",
+" vec3 h=normalize(light+vw);float spec=ggx(max(dot(nw,h),0.),mix(.13,.24,grain))*ndl;",
+" float fresnel=.18+.82*pow(1.-ndv,5.);vec3 env=environment(rw);",
+" float incidence=dot(nw,light);float diffraction=dot(rw,normalize(vec3(.73,.21,.65)))*2.7+incidence*1.85;",
+" diffraction+=sin(uv.y*94.+noise(uv*vec2(13.,8.))*4.)*.07;",
+" vec3 holo=spectrum(diffraction);float holoMask=smoothstep(.05,.72,1.-abs(incidence))*(.48+.32*grain);",
+" vec3 metal=env*(.78+fresnel*.9)+vec3(spec)*1.65+ndl2*vec3(.10,.035,.055);",
+" metal=mix(metal,metal*.58+holo*.58,holoMask);",
+" float foilFold=pow(.5+.5*sin(uv.y*43.+noise(uv*vec2(4.,19.))*6.),18.);metal+=foilFold*holo*.13;",
+" float rim=pow(edge,2.1);metal+=rim*(environment(normalize(reflect(-vw,normalize(nw+vec3(grad*.18,0.)))))*1.7+vec3(.14));",
+" float inner=1.-smoothstep(.075,.105,-d);metal+=inner*vec3(.18,.19,.21);",
+" float vignette=1.-dot(uv-.5,uv-.5)*.34;metal*=vignette;metal=metal/(metal+vec3(.78));",
+" gl_FragColor=vec4(pow(max(metal,0.),vec3(.86)),alpha);}"
+].join("\n");
+
+function compile(gl:WebGLRenderingContext,type:number,source:string){
+ const s=gl.createShader(type)!;gl.shaderSource(s,source);gl.compileShader(s);
+ if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s)||"Shader compile failed");return s;
+}
+function ReflectiveButton({matrix,onClick}:{matrix:React.RefObject<Float32Array>;onClick:()=>void}){
+ const canvas=useRef<HTMLCanvasElement>(null),[error,setError]=useState(false);
+ useEffect(()=>{const c=canvas.current;if(!c)return;let raf=0;
+  try{const gl=c.getContext("webgl",{alpha:true,antialias:true,premultipliedAlpha:true});if(!gl){setError(true);return}
+   gl.getExtension("OES_standard_derivatives");const program=gl.createProgram()!;
+   gl.attachShader(program,compile(gl,gl.VERTEX_SHADER,VS));gl.attachShader(program,compile(gl,gl.FRAGMENT_SHADER,FS));gl.linkProgram(program);
+   if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program)||"Program link failed");gl.useProgram(program);
+   const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+   const pos=gl.getAttribLocation(program,"position");gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,0,0);
+   const uRes=gl.getUniformLocation(program,"resolution"),uWorld=gl.getUniformLocation(program,"worldFromDevice"),uTime=gl.getUniformLocation(program,"time");
+   const draw=(now:number)=>{const r=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=Math.max(1,Math.round(r.width*dpr)),h=Math.max(1,Math.round(r.height*dpr));
+    if(c.width!==w||c.height!==h){c.width=w;c.height=h;gl.viewport(0,0,w,h)}gl.uniform2f(uRes,w,h);gl.uniformMatrix3fv(uWorld,false,matrix.current);
+    gl.uniform1f(uTime,now*.001);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);gl.drawArrays(gl.TRIANGLES,0,6);raf=requestAnimationFrame(draw)};
+   raf=requestAnimationFrame(draw);return()=>cancelAnimationFrame(raf);
+  }catch{setError(true)}
+ },[matrix]);
+ return <button className="sticker-stage" onClick={onClick} aria-label="Activate reflective holographic button">
+  <span className="sticker-shadow"/><span className="sticker-body">{error?<span className="webgl-error">WEBGL UNAVAILABLE</span>:<canvas ref={canvas}/>}
+   <span className="sticker-copy"><small>WORLD–SPACE REFLECTION</small><b>ACTIVATE</b><em>01</em></span>
+  </span></button>;
 }
 
-type SensorHud={
- permission:"idle"|"requesting"|"granted"|"denied"|"unavailable";
- signal:"waiting"|"live"|"stale";source:"none"|"orientation"|"motion"|"pointer";
- alpha:number|null;beta:number|null;gamma:number|null;x:number;y:number;
- events:number;hz:number;angle:number;age:number|null;secure:boolean;
-};
-const number=(n:number|null,digits=1)=>n===null?"—":n.toFixed(digits);
-
-function SensorHUD({data,onEnable,active}:{data:SensorHud;onEnable:()=>void;active:boolean}){
- return <aside className={"sensor-hud "+data.signal} aria-live="polite">
-  <div className="hud-head"><span className="hud-led"/><b>SENSOR INPUT</b><em>{data.signal==="live"?"RECEIVING":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em></div>
-  <div className="hud-grid">
-   <span>PERMISSION</span><strong>{data.permission}</strong><span>SOURCE</span><strong>{data.source}</strong>
+function HUD({data,enable}:{data:Telemetry;enable:()=>void}){
+ return <aside className={"sensor-hud "+data.signal}>
+  <div className="hud-head"><span className="hud-led"/><b>WORLD ATTITUDE</b><em>{data.signal==="live"?"LIVE":data.signal==="stale"?"NO SIGNAL":"WAITING"}</em></div>
+  <div className="hud-grid"><span>PERMISSION</span><strong>{data.permission}</strong><span>SOURCE</span><strong>{data.source}</strong>
    <span>EVENTS</span><strong>{data.events}</strong><span>RATE</span><strong>{data.hz.toFixed(1)} Hz</strong>
-   <span>ALPHA</span><strong>{number(data.alpha)}°</strong><span>BETA</span><strong>{number(data.beta)}°</strong>
-   <span>GAMMA</span><strong>{number(data.gamma)}°</strong><span>SCREEN</span><strong>{data.angle}°</strong>
-   <span>OUTPUT X</span><strong>{data.x.toFixed(3)}</strong><span>OUTPUT Y</span><strong>{data.y.toFixed(3)}</strong>
-   <span>LAST EVENT</span><strong>{data.age===null?"—":data.age+" ms"}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
-  </div>
-  <button className="hud-motion" onClick={onEnable}><span>{active?"↺":"◉"}</span>{active?"RECENTER":"ENABLE MOTION"}</button>
+   <span>ALPHA / YAW</span><strong>{fmt(data.alpha)}</strong><span>BETA / PITCH</span><strong>{fmt(data.beta)}</strong>
+   <span>GAMMA / ROLL</span><strong>{fmt(data.gamma)}</strong><span>LAST</span><strong>{data.age===null?"—":data.age+" ms"}</strong>
+   <span>NORMAL X</span><strong>{data.normal[0].toFixed(3)}</strong><span>NORMAL Y</span><strong>{data.normal[1].toFixed(3)}</strong>
+   <span>NORMAL Z</span><strong>{data.normal[2].toFixed(3)}</strong><span>HTTPS</span><strong>{data.secure?"yes":"no"}</strong>
+  </div><button className="hud-motion" onClick={enable} disabled={data.signal==="live"}><span>◉</span>{data.signal==="live"?"MOTION LIVE":"ENABLE MOTION"}</button>
  </aside>;
 }
 
 export default function Home(){
- const[tilt,setTilt]=useState<Tilt>({x:0,y:0}),[motion,setMotion]=useState<"idle"|"active"|"denied">("idle"),[alert,setAlert]=useState<Kind|null>(null);
- const[hud,setHud]=useState<SensorHud>({permission:"idle",signal:"waiting",source:"none",alpha:null,beta:null,gamma:null,
-  x:0,y:0,events:0,hz:0,angle:0,age:null,secure:true});
- const target=useRef<Tilt>({x:0,y:0}),baseline=useRef<{beta:number;gamma:number}|null>(null);
- const telemetry=useRef({events:0,first:0,last:0,lastPaint:0,lastOrientation:0});
- const permission=useRef<SensorHud["permission"]>("idle");
-
- const publish=useCallback((values:Partial<SensorHud>,force=false)=>{
-  const now=performance.now();if(!force&&now-telemetry.current.lastPaint<80)return;telemetry.current.lastPaint=now;
-  const elapsed=Math.max(1,now-telemetry.current.first);
-  setHud(old=>({...old,...values,events:telemetry.current.events,hz:telemetry.current.events*1000/elapsed,
-   age:telemetry.current.last?Math.round(now-telemetry.current.last):null,permission:permission.current,
-   secure:window.isSecureContext}));
- },[]);
-
- const consume=useCallback((beta:number,gamma:number,alpha:number|null,source:"orientation"|"motion")=>{
-  if(!Number.isFinite(beta)||!Number.isFinite(gamma))return;
-  const now=performance.now();if(!baseline.current)baseline.current={beta,gamma};
-  const db=beta-baseline.current.beta,dg=gamma-baseline.current.gamma;
-  const angle=((screen.orientation?.angle??Number((window as Window&{orientation?:number}).orientation)??0)+360)%360;
-  let dx=dg,dy=db;if(angle===90){dx=-db;dy=dg}else if(angle===270){dx=db;dy=-dg}else if(angle===180){dx=-dg;dy=-db}
-  const output={x:clamp(dx/18),y:clamp(dy/18)};target.current=output;
-  telemetry.current.events++;telemetry.current.first ||= now;telemetry.current.last=now;
-  if(source==="orientation")telemetry.current.lastOrientation=now;
-  permission.current="granted";setMotion("active");
-  publish({signal:"live",source,alpha,beta,gamma,x:output.x,y:output.y,angle},false);
+ const matrix=useRef<Float32Array>(attitudeMatrix(0,0,0,0)),pointer=useRef({x:0,y:0});
+ const permission=useRef<Permission>("idle"),stats=useRef({events:0,first:0,last:0,lastOrientation:0,lastPaint:0});
+ const[hud,setHud]=useState<Telemetry>({permission:"idle",signal:"waiting",source:"none",alpha:null,beta:null,gamma:null,events:0,hz:0,age:null,normal:[0,0,1],secure:true});
+ const[alert,setAlert]=useState(false);
+ const publish=useCallback((raw:Partial<Telemetry>,force=false)=>{const now=performance.now();if(!force&&now-stats.current.lastPaint<80)return;stats.current.lastPaint=now;
+  setHud(old=>({...old,...raw,permission:permission.current,events:stats.current.events,hz:stats.current.events*1000/Math.max(1,now-stats.current.first),
+   age:stats.current.last?Math.round(now-stats.current.last):null,secure:window.isSecureContext}))},[]);
+ const consume=useCallback((alpha:number,beta:number,gamma:number,source:"orientation"|"motion")=>{
+  const screenAngle=((screen.orientation?.angle??Number((window as Window&{orientation?:number}).orientation)??0)+360)%360;
+  matrix.current=attitudeMatrix(alpha,beta,gamma,screenAngle);const now=performance.now();stats.current.events++;stats.current.first ||=now;stats.current.last=now;
+  if(source==="orientation")stats.current.lastOrientation=now;permission.current="granted";
+  publish({signal:"live",source,alpha,beta,gamma,normal:surfaceNormal(matrix.current)},false);
  },[publish]);
-
- useEffect(()=>{let raf=0;const tick=()=>{setTilt(p=>({x:p.x+(target.current.x-p.x)*.14,
-  y:p.y+(target.current.y-p.y)*.14}));raf=requestAnimationFrame(tick)};raf=requestAnimationFrame(tick);return()=>cancelAnimationFrame(raf)},[]);
-
- useEffect(()=>{
-  setHud(h=>({...h,secure:window.isSecureContext}));
-  const orientation=(e:DeviceOrientationEvent)=>{
-   if(typeof e.beta==="number"&&typeof e.gamma==="number")consume(e.beta,e.gamma,typeof e.alpha==="number"?e.alpha:null,"orientation");
-  };
-  const motionFallback=(e:DeviceMotionEvent)=>{
-   if(performance.now()-telemetry.current.lastOrientation<600)return;const g=e.accelerationIncludingGravity;
+ useEffect(()=>{setHud(h=>({...h,secure:window.isSecureContext}));
+  const orient=(e:DeviceOrientationEvent)=>{if(typeof e.beta==="number"&&typeof e.gamma==="number")consume(typeof e.alpha==="number"?e.alpha:0,e.beta,e.gamma,"orientation")};
+  const motion=(e:DeviceMotionEvent)=>{if(performance.now()-stats.current.lastOrientation<600)return;const g=e.accelerationIncludingGravity;
    if(!g||typeof g.x!=="number"||typeof g.y!=="number"||typeof g.z!=="number")return;
-   const gamma=Math.atan2(g.x,Math.hypot(g.y,g.z))*180/Math.PI;
-   const beta=Math.atan2(-g.y,g.z)*180/Math.PI;consume(beta,gamma,null,"motion");
-  };
-  addEventListener("deviceorientation",orientation,true);
-  addEventListener("deviceorientationabsolute",orientation as EventListener,true);
-  addEventListener("devicemotion",motionFallback,true);
-  const timer=setInterval(()=>{const now=performance.now(),age=telemetry.current.last?Math.round(now-telemetry.current.last):null;
-   setHud(h=>({...h,age,signal:age!==null&&age<900?"live":permission.current==="granted"?"stale":"waiting"}))},500);
-  return()=>{removeEventListener("deviceorientation",orientation,true);removeEventListener("deviceorientationabsolute",orientation as EventListener,true);
-   removeEventListener("devicemotion",motionFallback,true);clearInterval(timer)};
+   consume(0,Math.atan2(-g.y,g.z)*180/Math.PI,Math.atan2(g.x,Math.hypot(g.y,g.z))*180/Math.PI,"motion")};
+  addEventListener("deviceorientation",orient,true);addEventListener("deviceorientationabsolute",orient as EventListener,true);addEventListener("devicemotion",motion,true);
+  const timer=setInterval(()=>{const now=performance.now(),age=stats.current.last?Math.round(now-stats.current.last):null;
+   setHud(h=>({...h,age,signal:age!==null&&age<900?"live":permission.current==="granted"?"stale":"waiting"}))},400);
+  return()=>{removeEventListener("deviceorientation",orient,true);removeEventListener("deviceorientationabsolute",orient as EventListener,true);removeEventListener("devicemotion",motion,true);clearInterval(timer)}
  },[consume]);
-
- useEffect(()=>{const move=(e:PointerEvent)=>{if(motion==="active"||e.pointerType==="touch")return;
-  const output={x:clamp((e.clientX/innerWidth-.5)*2),y:clamp((e.clientY/innerHeight-.5)*2)};target.current=output;
-  publish({source:"pointer",x:output.x,y:output.y},false)};addEventListener("pointermove",move,{passive:true});
-  return()=>removeEventListener("pointermove",move)},[motion,publish]);
-
- const enable=async()=>{
-  if(motion==="active"){baseline.current=null;target.current={x:0,y:0};publish({signal:"waiting"},true);return}
-  permission.current="requesting";publish({permission:"requesting",signal:"waiting"},true);
-  try{
-   const D=window.DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
-   const M=window.DeviceMotionEvent as typeof DeviceMotionEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
-   if(!D&&!M){permission.current="unavailable";setMotion("denied");publish({permission:"unavailable",signal:"stale"},true);return}
-   const requests:Promise<string>[]=[];
-   if(typeof D?.requestPermission==="function")requests.push(D.requestPermission());
-   if(typeof M?.requestPermission==="function")requests.push(M.requestPermission());
-   const results=requests.length?await Promise.all(requests):["granted"];
-   if(results.some(result=>result==="granted")){permission.current="granted";baseline.current=null;setMotion("active");publish({permission:"granted",signal:"waiting"},true)}
-   else{permission.current="denied";setMotion("denied");publish({permission:"denied",signal:"stale"},true)}
-  }catch{permission.current="denied";setMotion("denied");publish({permission:"denied",signal:"stale"},true)}
- };
-
- return <main className="lab-shell"><header className="lab-header"><div><p className="eyebrow">INTERACTION MATERIAL STUDY <span>№ 004</span></p>
-  <h1>Holographic<br/><i>CTA</i> Lab</h1></div><div className="header-tools"><button className={"motion-toggle "+motion} onClick={enable}>
-  <span className="motion-dot"/>{motion==="active"?"RECENTER":motion==="denied"?"TRY MOTION AGAIN":"ENABLE MOTION"}</button>
-  <p>Tilt your phone<br/>or move the pointer.</p></div></header>
-  <section className="button-stack" aria-label="Four holographic CTA implementations">
-   <Frame kind="CSS" tilt={tilt} activate={setAlert}><CssButton/></Frame><Frame kind="SVG" tilt={tilt} activate={setAlert}><SvgButton tilt={tilt}/></Frame>
-   <Frame kind="Canvas" tilt={tilt} activate={setAlert}><CanvasButton tilt={tilt}/></Frame><Frame kind="WebGL" tilt={tilt} activate={setAlert}><WebglButton tilt={tilt}/></Frame>
-  </section><footer><span>Four render paths</span><span>One optical behavior</span><span>2026</span></footer>
-  {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(null)}}><div className="alert-card" role="alertdialog" aria-modal="true" aria-labelledby="alert-title">
-   <div className="alert-icon">✓</div><p className="alert-kicker">INTERACTION CONFIRMED</p><h2 id="alert-title">{alert} is alive.</h2>
-   <p>The holographic surface responded as a real CTA button.</p><button autoFocus onClick={()=>setAlert(null)}>CLOSE <span>×</span></button>
-  </div></div>}<SensorHUD data={hud} onEnable={enable} active={motion==="active"}/></main>;
+ useEffect(()=>{const move=(e:PointerEvent)=>{if(hud.signal==="live")return;pointer.current={x:(e.clientX/innerWidth-.5)*70,y:(e.clientY/innerHeight-.5)*70};
+   matrix.current=attitudeMatrix(pointer.current.x,pointer.current.y*.65,pointer.current.x*.45,0);publish({source:"pointer",alpha:pointer.current.x,beta:pointer.current.y*.65,gamma:pointer.current.x*.45,normal:surfaceNormal(matrix.current)},false)};
+  addEventListener("pointermove",move,{passive:true});return()=>removeEventListener("pointermove",move)},[hud.signal,publish]);
+ const enable=async()=>{permission.current="requesting";publish({permission:"requesting",signal:"waiting"},true);try{
+  const D=window.DeviceOrientationEvent as typeof DeviceOrientationEvent&{requestPermission?:()=>Promise<"granted"|"denied">};
+  if(typeof D?.requestPermission==="function"){const result=await D.requestPermission();permission.current=result==="granted"?"granted":"denied"}
+  else permission.current=D?"granted":"unavailable";
+  publish({permission:permission.current,signal:permission.current==="denied"?"stale":"waiting"},true);
+ }catch{permission.current="denied";publish({permission:"denied",signal:"stale"},true)}};
+ return <main className="lab-shell"><header><div><p className="eyebrow">OPTICAL MATERIAL STUDY <span>WEBGL / 01</span></p>
+  <h1>World-Space<br/><i>Hologram</i></h1></div><p className="intro">A metallic diffraction surface.<br/>Lit by a fixed world, not an animation.</p></header>
+  <section className="hero"><div className="axis-label"><span>REAL-TIME REFLECTION</span><i/></div><ReflectiveButton matrix={matrix} onClick={()=>setAlert(true)}/>
+   <div className="material-note"><span>ANISOTROPIC FOIL</span><span>GGX SPECULAR</span><span>WORLD LIGHTS</span></div>
+  </section><footer><span>DEVICE ATTITUDE → SURFACE NORMAL → REFLECTION VECTOR</span><span>2026</span></footer>
+  <HUD data={hud} enable={enable}/>
+  {alert&&<div className="alert-backdrop" onPointerDown={e=>{if(e.target===e.currentTarget)setAlert(false)}}><div className="alert-card" role="alertdialog" aria-modal="true">
+   <div className="alert-icon">✓</div><p>INTERACTION CONFIRMED</p><h2>Surface activated.</h2><button autoFocus onClick={()=>setAlert(false)}>CLOSE <span>×</span></button>
+  </div></div>}
+ </main>;
 }
