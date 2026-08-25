@@ -44,15 +44,7 @@ export function CTA() {
       variant="spectral-film"
       width="min(100%, 560px)"
       height={148}
-      specularIntensity={1.55}
-      specularSize={2.55}
-      specularRoughness={0.215}
-      specularBloom={0.12}
-      specularFresnel={0.2}
-      specularColor="#0061FE"
-      specularIOR={2.3}
-      specularAnisotropy={0.66}
-      specularAnisotropyRotation={Math.PI / 2}
+      specular={true}
       onClick={() => alert("Activated")}
     >
       ACTIVATE
@@ -86,21 +78,13 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `children` | `ReactNode` | `ACTIVATE` | Main button content. |
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
-| `specularIntensity` | `number` | `1.55` | All direct specular energy, clamped to `0–3`; `0` fully disables the highlight. |
-| `specularSize` | `number` | `2.55` | Highlight footprint scale, clamped to `0.25–3`. |
-| `specularRoughness` | `number` | `0.215` | Surface specular lobe width, clamped to `0.025–0.3`. |
-| `specularBloom` | `number` | `0.12` | Soft blue-white highlight halo, clamped to `0–1`. |
-| `specularFresnel` | `number` | `0.2` | Grazing-angle reflection strength, clamped to `0–1`. |
-| `specularColor` | `string \| readonly [number, number, number]` | `#0061FE` | F0 tint as `#RGB`, `#RRGGBB`, or normalized RGB. |
-| `specularIOR` | `number` | `2.3` | Dielectric index of refraction, clamped to `1–2.5`. |
-| `specularAnisotropy` | `number` | `0.66` | Highlight elongation, clamped to `0–1`. |
-| `specularAnisotropyRotation` | `number` | `π/2` | Elongation direction in radians, clamped to `±2π`. |
+| `specular` | `boolean` | `true` | Enables the fixed, tuned surface highlight. |
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission. Plain text inherits the default black label treatment; `children` remains a `ReactNode`, so styled JSX, icons, and custom label structures can provide their own colors.
 
-Specular props are uploaded as WebGL uniforms on the existing animation loop, so live changes do not recreate the WebGL program. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat. `specularIntensity={0}` also removes the direct environment-light lobes and rim glints while retaining the holographic base material. The extra controls follow common PBR material concepts: tinted F0/specular color, dielectric IOR, and an anisotropic lobe with a rotatable direction.
+The specular preset is part of the material design rather than a public collection of tuning knobs. Set `specular={false}` to remove its direct environment-light lobes and rim glints while retaining the holographic base material. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat. The boolean is uploaded on the existing animation loop, so toggling it does not recreate the WebGL program.
 
-Parameter semantics are informed by Khronos glTF's [`KHR_materials_specular`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular), [`KHR_materials_ior`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior), and [`KHR_materials_anisotropy`](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_anisotropy) material extensions. This button uses a compact custom WebGL 1 approximation rather than claiming full glTF conformance.
+The internal preset is informed by common PBR material concepts but uses a compact custom WebGL 1 approximation rather than claiming glTF conformance.
 
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, and `facet-chrome`.
 

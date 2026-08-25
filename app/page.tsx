@@ -28,15 +28,7 @@ export default function Home(){
  const[label,setLabel]=useState("ACTIVATE");
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
- const[specularIntensity,setSpecularIntensity]=useState(1.55);
- const[specularSize,setSpecularSize]=useState(2.55);
- const[specularRoughness,setSpecularRoughness]=useState(.215);
- const[specularBloom,setSpecularBloom]=useState(.12);
- const[specularFresnel,setSpecularFresnel]=useState(.2);
- const[specularColor,setSpecularColor]=useState("#0061fe");
- const[specularIOR,setSpecularIOR]=useState(2.3);
- const[specularAnisotropy,setSpecularAnisotropy]=useState(.66);
- const[specularRotation,setSpecularRotation]=useState(90);
+ const[specular,setSpecular]=useState(true);
  const[disabled,setDisabled]=useState(false);
  const[manager,setManager]=useState<keyof typeof installCommands>("npm");
  const[activated,setActivated]=useState(0);
@@ -47,13 +39,10 @@ export default function Home(){
   'export function CTA() {','  const motion = useHolographicMotion({','    requestOnFirstInteraction: true,','  });','',
   '  return (','    <HolographicButton','      motion={motion}','      variant="'+variant+'"',
   '      width="min(100%, '+width+'px)"','      height={'+height+'}',
-  '      specularIntensity={'+specularIntensity.toFixed(2)+'}','      specularSize={'+specularSize.toFixed(2)+'}','      specularRoughness={'+specularRoughness.toFixed(3)+'}',
-  '      specularBloom={'+specularBloom.toFixed(2)+'}','      specularFresnel={'+specularFresnel.toFixed(2)+'}',
-  '      specularColor="'+specularColor+'"','      specularIOR={'+specularIOR.toFixed(2)+'}',
-  '      specularAnisotropy={'+specularAnisotropy.toFixed(2)+'}','      specularAnisotropyRotation={'+(specularRotation*Math.PI/180).toFixed(3)+'}',
+  '      specular={'+specular+'}',
   disabled?'      disabled':'',
   '      onClick={() => alert("Activated")}','    >','      '+label,'    </HolographicButton>','  );','}'
- ].filter(Boolean).join("\n"),[variant,width,height,specularIntensity,specularSize,specularRoughness,specularBloom,specularFresnel,specularColor,specularIOR,specularAnisotropy,specularRotation,disabled,label]);
+ ].filter(Boolean).join("\n"),[variant,width,height,specular,disabled,label]);
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
@@ -65,7 +54,7 @@ export default function Home(){
   <section className="hero-section" id="top">
    <div className="hero-copy">
     <p className="kicker"><span>REACT / WEBGL</span> WORLD-LIT INTERFACE MATERIAL</p>
-    <h1>A button that<br/>reflects <i>the room.</i></h1>
+    <h1>A button that<br/>changes with <i>your angle.</i></h1>
     <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
     <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
     <div className="hero-facts"><span>MIT LICENSE</span><span>4 MATERIALS</span><span>REACT 18+</span><span>NO HUMAN REVIEW</span></div>
@@ -88,21 +77,13 @@ export default function Home(){
      </div>
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
      <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
-     <div className="control-group specular-controls"><span className="control-label">Surface specular</span>
-      <label className="range-field"><span>Intensity <b>{specularIntensity.toFixed(2)}</b></span><input type="range" min="0" max="3" step="0.05" value={specularIntensity} onChange={e=>setSpecularIntensity(Number(e.target.value))}/></label>
-      <label className="range-field"><span>Size <b>{specularSize.toFixed(2)}</b></span><input type="range" min="0.25" max="3" step="0.05" value={specularSize} onChange={e=>setSpecularSize(Number(e.target.value))}/></label>
-      <label className="range-field"><span>Roughness <b>{specularRoughness.toFixed(3)}</b></span><input type="range" min="0.025" max="0.3" step="0.005" value={specularRoughness} onChange={e=>setSpecularRoughness(Number(e.target.value))}/></label>
-      <label className="range-field"><span>Bloom <b>{specularBloom.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularBloom} onChange={e=>setSpecularBloom(Number(e.target.value))}/></label>
-      <label className="range-field"><span>Fresnel <b>{specularFresnel.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularFresnel} onChange={e=>setSpecularFresnel(Number(e.target.value))}/></label>
-      <label className="color-field"><span>Color <b>{specularColor}</b></span><input type="color" value={specularColor} onChange={e=>setSpecularColor(e.target.value)}/></label>
-      <label className="range-field"><span>IOR <b>{specularIOR.toFixed(2)}</b></span><input type="range" min="1" max="2.5" step="0.05" value={specularIOR} onChange={e=>setSpecularIOR(Number(e.target.value))}/></label>
-      <label className="range-field"><span>Anisotropy <b>{specularAnisotropy.toFixed(2)}</b></span><input type="range" min="0" max="1" step="0.02" value={specularAnisotropy} onChange={e=>setSpecularAnisotropy(Number(e.target.value))}/></label>
-      <label className="range-field"><span>Direction <b>{specularRotation}°</b></span><input type="range" min="0" max="360" step="1" value={specularRotation} onChange={e=>setSpecularRotation(Number(e.target.value))}/></label>
+     <div className="control-group specular-toggle-group"><span className="control-label">Surface specular</span>
+      <label className="toggle-field"><span>Enabled</span><button type="button" role="switch" aria-label="Toggle surface specular" aria-checked={specular} className={specular?"on":""} onClick={()=>setSpecular(v=>!v)}><i/></button></label>
      </div>
     </div>
     <div className="live-stage">
      <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>
-     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} specularIntensity={specularIntensity} specularSize={specularSize} specularRoughness={specularRoughness} specularBloom={specularBloom} specularFresnel={specularFresnel} specularColor={specularColor} specularIOR={specularIOR} specularAnisotropy={specularAnisotropy} specularAnisotropyRotation={specularRotation*Math.PI/180} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
+     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} specular={specular} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
      <p>{disabled?"DISABLED · NATIVE STATE":activated?"EVENT RECEIVED × "+activated:"CLICK, TAP, FOCUS, OR SUBMIT LIKE A BUTTON"}</p>
     </div>
    </div>
@@ -139,15 +120,7 @@ export default function Home(){
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
-      ["specularIntensity","number","1.55","All direct specular energy; 0 fully disables the highlight."],
-      ["specularSize","number","2.55","Highlight footprint scale, clamped from 0.25 to 3."],
-      ["specularRoughness","number","0.215","Surface specular lobe width, clamped from 0.025 to 0.3."],
-      ["specularBloom","number","0.12","Soft blue-white halo around the highlight, clamped from 0 to 1."],
-      ["specularFresnel","number","0.20","How strongly the surface brightens toward grazing angles, clamped from 0 to 1."],
-      ["specularColor","hex or RGB tuple","#0061FE","F0 highlight tint as #RGB, #RRGGBB, or normalized RGB."],
-      ["specularIOR","number","2.30","Dielectric index of refraction, clamped from 1 to 2.5."],
-      ["specularAnisotropy","number","0.66","Highlight elongation, clamped from 0 to 1."],
-      ["specularAnisotropyRotation","radians","π/2","Direction of the elongated highlight, clamped to ±2π."],
+      ["specular","boolean","true","Enables the fixed, tuned surface highlight."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}
     </div><div className="native-strip"><b>Also forwards</b><span>on*</span><span>disabled</span><span>type / name / value / form</span><span>aria-* / data-*</span><span>className / style / ref</span></div></div>
     <div className="api-block"><h3>useHolographicMotion</h3><div className="hook-card"><code>const motion = useHolographicMotion(&#123;<br/>  pointerFallback: true,<br/>  requestOnFirstInteraction: true,<br/>  telemetry: false<br/>&#125;);</code><p>Use one instance per group. Reactive <code>telemetry</code> is opt-in, so the default path does not re-render the tree for diagnostics. The library renders no HUD.</p></div>

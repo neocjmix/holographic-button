@@ -27,3 +27,5 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and S
 - Made zero specular intensity disable every direct highlight contribution and added an independent highlight-size control.
 - Removed the label text shadow so the copy no longer appears engraved.
 - Promoted the tuned blue, broad anisotropic specular settings from the playground to the component defaults.
+- Replaced the public specular tuning parameters with a single `specular` boolean and fixed the approved preset inside the material.
+- Changed the hero copy to “A button that changes with your angle.”
