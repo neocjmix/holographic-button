@@ -1,7 +1,8 @@
 /**
- * WebGPU presentation of the ORIGINAL WebGL material, not a second button design.
- * The four material branches, world-space lighting, bump/rim, noise and GGX
- * equations below deliberately keep the GLSL constants and operation order.
+ * WebGPU presentation matching the WebGL material in this preview.
+ * The four texture branches, world-space light positions, noise and motion retain
+ * the original design. The shared macro normal, inset ridge and metal reflection
+ * are deliberately refined in preview.4, identically in GLSL and WGSL.
  *
  * HDR presentation is the only added shading step:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
@@ -71,6 +72,29 @@ fn ggxAniso(n: vec3f, h: vec3f, t0: vec3f, r: f32, a: f32, rot: f32) -> f32 {
   let q = x * x + y * y + z * z;
   return 1. / (3.14159 * ax * ay * q * q);
 }
+// A tiny positive bead with C2 joins to the flat outer edge and central face.
+// Its analytic inward derivative controls the normal; height adds no brightness.
+fn rimProfile(inward: f32) -> vec2f {
+  let t = (inward - .025) / .06;
+  if (t <= 0. || t >= 1.) { return vec2f(0.); }
+  let q = 1. - t;
+  return vec2f(64. * .0012 * t * t * t * q * q * q,
+               (192. * .0012 / .06) * t * t * q * q * (1. - 2. * t));
+}
+// GGX with height-correlated Smith visibility and neutral conductor Schlick F.
+// F0=.75 and roughness are artistic tin-like approximations, not measured tin.
+// https://google.github.io/filament/main/filament.html#materialsystem/specularbrdf
+fn smithVisibility(nl: f32, nv: f32, r: f32) -> f32 {
+  let a = r * r;
+  let a2 = a * a;
+  let gv = nl * sqrt(nv * nv * (1. - a2) + a2);
+  let gl = nv * sqrt(nl * nl * (1. - a2) + a2);
+  return .5 / max(gv + gl, .00001);
+}
+fn conductorBRDF(nh: f32, nl: f32, nv: f32, vh: f32, r: f32) -> f32 {
+  let f = .75 + .25 * pow(1. - vh, 5.);
+  return ggx(nh, r) * smithVisibility(nl, nv, r) * f;
+}
 fn env(r: vec3f, si: f32) -> vec3f {
   var c = mix(vec3f(.012, .014, .019), vec3f(.095, .105, .125), smoothstep(-.35, .7, r.y));
   c += exp(-pow(abs(r.y + .08) * 7., 2.)) * vec3f(.1, .115, .13);
@@ -112,10 +136,7 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   let al = 1. - smoothstep(-aa, aa, d);
   let gd = normalize(vec2f(dpdx(d), -dpdy(d)) + vec2f(.00001));
   let inward = max(-d, 0.);
-  let rm = 1. - smoothstep(.12, .15, inward);
-  let rp = clamp(inward / .12, 0., 1.) * 6.28318;
-  let rh = -sin(rp) * rm;
-  let rs = -cos(rp) * rm;
+  let rim = rimProfile(inward);
   let grain = noise(uv * vec2f(720., 115.));
   let brush = sin(uv.x * 1380. + noise(uv * vec2f(7., 29.)) * 8.);
   // Derivatives execute before discard / material branching (WGSL uniformity).
@@ -128,8 +149,8 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   if (method > 1.5 && method < 2.5) { micro = filmGradient * .035; }
   let cell = floor(uv * vec2f(24., 7.));
   if (method > 2.5) { micro = (vec2f(hash(cell), hash(cell + vec2f(7.31))) - vec2f(.5)) * .075; }
-  let shapeN = normalize(vec3f(p.x * .18, p.y * .38, 1.));
-  let n = normalize(vec3f(shapeN.xy + gd * rs * .56 + micro, 1. - abs(rh) * .12));
+  // inward=-d, so -grad(height)=gd * dh/d(inward). Preserve texture micro-bump.
+  let n = normalize(vec3f(gd * rim.y + micro, 1.));
   let nw = normalize((u.worldFromDevice * vec4f(n, 0.)).xyz);
   let vw = normalize((u.worldFromDevice * vec4f(0., 0., 1., 0.)).xyz);
   let rw = normalize(reflect(-vw, nw));
@@ -142,8 +163,9 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   let ndl2 = max(dot(nw, l2), 0.);
   // Unit-vector dot products can round above one; keep pow(1-ndv, 5) defined.
   let ndv = clamp(dot(nw, vw), .001, 1.);
-  let rough = clamp(material.z * .55 + (grain - .5) * .012, .05, .16);
-  let spec = ggx(max(dot(nw, h), 0.), rough) * ndl * .42 * si;
+  let rough = clamp(.24 + material.z * .4 + (grain - .5) * .012, .26, .38);
+  let brdf = conductorBRDF(max(dot(nw, h), 0.), ndl, ndv, clamp(dot(vw, h), 0., 1.), rough);
+  let spec = brdf * ndl * si;
   let fres = .18 + .82 * pow(1. - ndv, 5.);
   let inc = dot(nw, l);
   let e = env(rw, si);
@@ -176,26 +198,12 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
     nonSpecular = eBase * 1.02 + color;
   }
   let sl = ndl;
-  let sh = max(dot(nw, h), 0.);
-  let ior = 2.3;
-  let f0 = pow((ior - 1.) / (ior + 1.), 2.);
-  let surfaceF = f0 + (1. - f0) * pow(1. - ndv, 5.);
-  let surfaceR = .215;
-  let size = 2.55;
-  let gloss = 1. - smoothstep(.025, .25, surfaceR);
-  let glass = min(ggxAniso(nw, h, tw, surfaceR, .66, 1.5707963) * sl * .032, 3.2) * pow(sh, 1. / size);
-  let pin = pow(sh, mix(72., 260., gloss) / size) * mix(.45, 1.5, gloss);
-  let bloom = pow(sh, mix(24., 54., gloss) / size) * .12;
-  let sc = vec3f(0., .380392, .996078);
-  let surfaceSpec = sc * (glass + pin) + mix(sc, vec3f(.72, .82, 1.), .45) * bloom;
-  metal += (surfaceSpec * mix(1., surfaceF, .2) + e * surfaceF * .10 + ndl2 * vec3f(.075, .025, .045)) * si;
-  let raised = max(rh, 0.);
-  let recessed = max(-rh, 0.);
-  metal += raised * (env(rw, si) * 1.25 + vec3f(.13 * si));
-  nonSpecular += raised * (eBase * 1.25);
-  metal *= 1. - recessed * .34;
-  nonSpecular *= 1. - recessed * .34;
-  metal += vec3f(pow(max(rs, 0.), 6.) * .30 * si);
+  let surfaceF = .75 + .25 * pow(1. - ndv, 5.);
+  let h2 = normalize(l2 + vw);
+  let surfaceSpec = brdf * sl * .35
+      + conductorBRDF(max(dot(nw, h2), 0.), ndl2, ndv, clamp(dot(vw, h2), 0., 1.), rough) * ndl2 * .08;
+  // Shared broad metal reflection, with the original lights and environment.
+  metal += (vec3f(surfaceSpec) + e * surfaceF * .10) * si;
   let vignette = 1. - dot(uv - vec2f(.5), uv - vec2f(.5)) * .34;
   metal *= vignette;
   nonSpecular *= vignette;

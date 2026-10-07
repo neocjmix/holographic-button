@@ -1,6 +1,6 @@
 {
   "name": "holographic-button-repository",
-  "version": "1.0.0-preview.3",
+  "version": "1.0.0-preview.4",
   "private": true,
   "workspaces": [
     "components/holographic-button"
@@ -17,7 +17,7 @@
     "build:preview": "node scripts/build-hdr-preview.mjs"
   },
   "dependencies": {
-    "@neocjmix/holographic-button": "1.0.0-preview.3",
+    "@neocjmix/holographic-button": "1.0.0-preview.4",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },

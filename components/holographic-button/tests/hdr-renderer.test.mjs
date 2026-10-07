@@ -1,9 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {transform} from 'esbuild';
 
 const source = await readFile(new URL('../hdr-renderer.ts', import.meta.url), 'utf8');
+const componentSource = await readFile(new URL('../index.tsx', import.meta.url), 'utf8');
+const wgsl = source.split('/* wgsl */ `')[1].split('`;')[0];
+const glsl = JSON.parse(componentSource.match(/const FS=(\[[\s\S]*?\])\.join\("\\n"\);/)[1]).join('\n');
+const hash = s => createHash('sha256').update(s).digest('hex');
 const {code} = await transform(source, {loader: 'ts', format: 'esm'});
 let moduleNumber = 0;
 const load = () => import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}#${++moduleNumber}`);
@@ -88,14 +93,114 @@ test('frame exceptions release resources and invoke fallback once',async()=>{
  const stop=await createOriginalHdrRenderer(h.makeCanvas(),options({matrix(){throw Error('matrix unavailable')},error:e=>errors.push(e)}));
  h.frame();stop();assert.deepEqual(errors,['matrix unavailable']);assert.equal(h.state.destroyed,1);assert.equal(h.state.frames,0);
 });
-test('shader preserves original geometry/material/light constants and coordinate convention',async()=>{
+test('shader preserves silhouette, material branches, lighting directions and coordinate convention',async()=>{
  const {originalHdrShader:s}=await load();
- for(const marker of ['a * .488, .465), .43','smoothstep(.12, .15, inward)','inward / .12','gd * rs * .56','abs(rh) * .12','p.x * .18, p.y * .38','720., 115.','7., 29.','1380.','16., 9.','24., 7.','-.12, -.66, .74','.72, -.12, .68','specularIntensity * 1.55','rough) * ndl * .42 * si','e * .46','e * .72','e * .31','e * 1.02','surfaceR = .215','size = 2.55','surfaceR, .66, 1.5707963','.380392, .996078','metal + vec3f(.78)','vec3f(.86)']) assert.ok(s.includes(marker),marker);
+ for(const marker of ['a * .488, .465), .43','720., 115.','7., 29.','1380.','16., 9.','24., 7.','-.12, -.66, .74','.72, -.12, .68','specularIntensity * 1.55','e * .46','e * .72','e * .31','e * 1.02','metal + vec3f(.78)','vec3f(.86)']) assert.ok(s.includes(marker),marker);
  assert.ok(s.includes('1. - pixel.y / resolution.y'));assert.ok(s.includes('vec2f(dpdx(d), -dpdy(d))'));
  assert.ok(s.includes('grainDy = -dpdy(grain)'));assert.ok(s.includes('vec2f(dpdx(filmNoise), -dpdy(filmNoise))'));
  assert.ok(s.indexOf('let filmGradient')<s.indexOf('discard;'));assert.ok(s.includes('encoded * alpha, alpha'));
  assert.ok(s.includes('clamp(dot(nw, vw), .001, 1.)'));
+ assert.ok(s.includes('vec4f(0., 0., 1., 0.)'));assert.ok(glsl.includes('worldFromDevice*vec3(0,0,1)'));
  for(const threshold of ['method < .5','method < 1.5','method < 2.5']) assert.ok(s.includes(threshold));
+ // All environment colors, angular widths and directions remain unchanged.
+ assert.equal(hash(functionBody(wgsl,'fn env(')),'1eb48d33ba83842e098117ec04366e7a0ccea24469c3c5e90ccaae132af73dfb');
+ assert.equal(hash(functionBody(glsl,'vec3 env(')),'f3231a0254ea9700d50888ae7eb0f4c8e86e264193fe40255ededebc149524b0');
+});
+test('all four texture formulas, palettes, noise and microtexture are unchanged',()=>{
+ assert.equal(hash(glsl.slice(glsl.indexOf('vec3 e=env(rw,si),metal;'),glsl.indexOf('float sl=ndl'))),'7b7fb1a429806318fcf65834e0c073187aed06197ee439135a3cc796e90d007e');
+ assert.equal(hash(wgsl.slice(wgsl.indexOf('  if (method < .5) {'),wgsl.indexOf('  let sl = ndl;'))),'bb82bfb4f66635e34776ef42ce9b4592fc2b6f8227090e2f9761259a3056f999');
+ assert.equal(hash(glsl.slice(glsl.indexOf('grain=noise('),glsl.indexOf('vec3 n=normalize('))),'a34322f2368c32d9860f10b27bae8e935b167c9869baf5679ac4ec5e21bd2e41');
+ assert.equal(hash(wgsl.slice(wgsl.indexOf('  let grain ='),wgsl.indexOf('  // inward=-d'))),'8ff604af175e3c069df7697c7ec07aa85a0cacb8c7a95789787554f514f60160');
+ for(const [shader,prefix] of [[glsl,'float'],[wgsl,'fn']]) {
+   assert.equal(hash(functionBody(shader,`${prefix} hash(`)),prefix==='fn'?'4c0c459143feec91a2994e3d79c8cb0fd3eeea005ed40505d6669db65e6fb55d':'9264003d8773386fb9fe7582dc16a348ce9b4904775d22d3b5d4b23ecaf2c627');
+   assert.equal(hash(functionBody(shader,`${prefix} noise(`)),prefix==='fn'?'e95ec688cac6243b03b8f6cb4623254237fd4626828f6b6a83b06264f25595e0':'b58fc352df9253a69864b7e04b49202cc3bf7a7b6604b4051444ab0a56598246');
+ }
+});
+
+// Execute the actual scalar shader function bodies in double precision. This
+// ties the geometry/BRDF checks to both sources, but is not GPU/render validation.
+function functionBody(shader,signature) {
+ const at=shader.indexOf(signature);assert.notEqual(at,-1,signature);
+ const start=shader.indexOf('{',at);let depth=1,end=start+1;
+ for(;depth&&end<shader.length;end++){if(shader[end]==='{')depth++;if(shader[end]==='}')depth--}
+ assert.equal(depth,0,signature);return shader.slice(start+1,end-1);
+}
+const scalarBindings={pow:Math.pow,sqrt:Math.sqrt,max:Math.max,vec2:(...v)=>v.length===1?[v[0],v[0]]:v};
+function scalarFunction(shader,signature,parameters,bindings={}) {
+ const body=functionBody(shader,signature).replace(/\bfloat\s+/g,'let ').replace(/\bvec2f\(/g,'vec2(');
+ const bound={...scalarBindings,...bindings};
+ return new Function(...Object.keys(bound),...parameters,body).bind(null,...Object.values(bound));
+}
+function shaderMath(shader,language) {
+ const signature=name=>`${language==='wgsl'?'fn':name==='rimProfile'?'vec2':'float'} ${name}(`;
+ const ggx=scalarFunction(shader,signature('ggx'),['n','r']);
+ const smithVisibility=scalarFunction(shader,signature('smithVisibility'),['nl','nv','r']);
+ const brdf=scalarFunction(shader,signature('conductorBRDF'),['nh','nl','nv','vh','r'],{ggx,smithVisibility});
+ const rim=scalarFunction(shader,signature('rimProfile'),['inward']);
+ return {ggx,smithVisibility,brdf,rim};
+}
+const shaderModels=[['GLSL',shaderMath(glsl,'glsl')],['WGSL',shaderMath(wgsl,'wgsl')]];
+const normalize=v=>{const length=Math.hypot(...v);return v.map(x=>x/length)};
+function halfWidth(ggx,r) {
+ const half=ggx(1,r)*.5;let lo=0,hi=Math.PI/2;
+ for(let i=0;i<70;i++){const mid=(lo+hi)/2;if(ggx(Math.cos(mid),r)>half)lo=mid;else hi=mid}
+ return (lo+hi)/2;
+}
+for(const [language,{rim,ggx,brdf}] of shaderModels) {
+ test(`${language} macroscopic face and outer edge are flat, with only a shallow positive inset ridge`,()=>{
+   for(const inward of [-.1,0,.01,.025,.085,.12,.25,.465,1]) {
+     assert.deepEqual(rim(inward),[0,0]);assert.deepEqual(normalize([rim(inward)[1],0,1]),[0,0,1]);
+   }
+   assert.ok(Math.abs(rim(.055)[0]-.0012)<1e-15);assert.ok(Math.abs(rim(.055)[1])<1e-14);
+   let maxSlope=0;
+   for(let i=0;i<=1000;i++) {
+     const inward=.025+.06*i/1000,[height,slope]=rim(inward);
+     assert.ok(height>=0&&height<=.0012+1e-15);assert.ok(Number.isFinite(slope));
+     maxSlope=Math.max(maxSlope,Math.abs(slope));
+   }
+   assert.ok(rim(.04)[1]>0);assert.ok(rim(.07)[1]<0);
+   const degrees=Math.atan(maxSlope)*180/Math.PI;assert.ok(degrees>3.9&&degrees<4.0);
+ });
+ test(`${language} ridge joins are C2 and normals use the true height derivative`,()=>{
+   const epsilon=1e-6;
+   for(const endpoint of [.025,.085]) {
+     const [height,slope]=rim(endpoint);assert.equal(height,0);assert.equal(slope,0);
+     const finiteSlope=(rim(endpoint+epsilon)[0]-rim(endpoint-epsilon)[0])/(2*epsilon);
+     const finiteCurvature=(rim(endpoint+epsilon)[1]-rim(endpoint-epsilon)[1])/(2*epsilon);
+     assert.ok(Math.abs(finiteSlope)<1e-8);assert.ok(Math.abs(finiteCurvature)<.001);
+   }
+   for(let i=1;i<100;i++) {
+     const inward=.025+.06*i/100;
+     const finiteSlope=(rim(inward+epsilon)[0]-rim(inward-epsilon)[0])/(2*epsilon);
+     assert.ok(Math.abs(finiteSlope-rim(inward)[1])<1e-8);
+     assert.ok(Math.abs(rim(inward)[0]-rim(.11-inward)[0])<1e-15);
+   }
+ });
+ test(`${language} tin-like GGX has a wider half-maximum lobe than the original roughness range`,()=>{
+   assert.ok(halfWidth(ggx,.30)>halfWidth(ggx,.16)*3.5);
+   assert.ok(halfWidth(ggx,.30)>halfWidth(ggx,.05)*35);
+   for(const materialZ of [.11,.23,.18,.09])for(const grain of [0,.5,1]) {
+     const oldRough=Math.max(.05,Math.min(.16,materialZ*.55+(grain-.5)*.012));
+     const rough=Math.max(.26,Math.min(.38,.24+materialZ*.4+(grain-.5)*.012));
+     assert.ok(halfWidth(ggx,rough)>halfWidth(ggx,oldRough)*4);
+   }
+   // Broadening distributes the peak, rather than adding a rim brightness term.
+   assert.ok(ggx(1,.3)<ggx(1,.16));assert.ok(ggx(Math.cos(.1),.3)>ggx(Math.cos(.1),.16));
+ });
+ test(`${language} neutral conductor BRDF stays finite at grazing angles`,()=>{
+   for(const nl of [0,.00001,.01,.5,1])for(const nv of [.001,.01,.5,1])for(const nh of [0,.5,.99,1])for(const r of [.26,.3,.38]) {
+     const value=brdf(nh,nl,nv,.8,r)*nl;assert.ok(Number.isFinite(value)&&value>=0);
+   }
+   assert.ok(Math.abs(brdf(1,1,1,1,.3)-ggx(1,.3)*.25*.75)<1e-12);
+ });
+}
+test('GLSL and WGSL profiles and shared specular equations agree numerically',()=>{
+ const g=shaderModels[0][1],w=shaderModels[1][1];
+ for(let i=0;i<=1000;i++)assert.deepEqual(g.rim(i/1000),w.rim(i/1000));
+ for(const r of [.26,.3,.38])for(const n of [.001,.2,.5,.9,1])assert.equal(g.brdf(n,n,n,.8,r),w.brdf(n,n,n,.8,r));
+ assert.ok(glsl.includes('n=normalize(vec3(gd*rim.y+micro,1.))'));assert.ok(wgsl.includes('n = normalize(vec3f(gd * rim.y + micro, 1.))'));
+ assert.ok(glsl.includes('rough=clamp(.24+material.z*.4+(grain-.5)*.012,.26,.38)'));assert.ok(wgsl.includes('rough = clamp(.24 + material.z * .4 + (grain - .5) * .012, .26, .38)'));
+ for(const shader of [glsl,wgsl])for(const removed of ['shapeN','recessed','raised','surfaceR','let glass','float glass','let pin','let bloom'])assert.equal(shader.includes(removed),false,removed);
 });
 
 // Independent double-precision presentation reference, not a GPU rendering test.
