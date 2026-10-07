@@ -23,7 +23,7 @@ export function bodyOf(shader,signature) {
 }
 const scalarBuiltins={
  sin:Math.sin,cos:Math.cos,floor:Math.floor,sqrt:Math.sqrt,pow:Math.pow,
- min:Math.min,max:Math.max,fract:x=>x-Math.floor(x),clamp,mix,smoothstep,
+ asin:Math.asin,abs:Math.abs,atan:Math.atan2,atan2:Math.atan2,min:Math.min,max:Math.max,fract:x=>x-Math.floor(x),clamp,mix,smoothstep,
  vec2:(...v)=>v.length===1?[v[0],v[0]]:v,
  vec3f:x=>({x,y:x,z:x}),decodeSRGB:v=>({x:decode(v.x)}),encodeSRGB:v=>({x:encode(v.x)}),
 };
@@ -34,9 +34,9 @@ export function scalarFunction(shader,signature,parameters,bindings={}) {
 }
 const functionParameters={
  stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
- stickerPhaseX:['x','tiltX','aspect'],stickerPhaseY:['y','tiltY'],
- stickerChannel:['channel','x','y','tiltX','tiltY','aspect'],
- stickerGlare:['x','y','centerX','centerY','radius'],stickerSdr:['base','glare','intensity'],
+ stickerPhase:['position','transform'],stickerMotion:['axis'],
+ stickerChannel:['channel','x','y','tx','ty','width','height','base'],
+ stickerGlare:['x','y','tx','ty','aspect'],stickerReflectedBase:['base','glare','intensity'],stickerSdr:['base'],
 };
 const mul=(a,b)=>{const o=new Array(9).fill(0);for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++)o[r*3+c]+=a[r*3+k]*b[k*3+c];return o};
 const matrixFunction=new Function('rad','mul','alpha','beta','gamma','screenAngle',bodyOf(componentSource,'function attitudeMatrix(')).bind(null,n=>n*Math.PI/180,mul);
@@ -49,34 +49,54 @@ export function sourceModel(shader,language) {
  const model={};
  for(const [name,parameters] of Object.entries(functionParameters))model[name]=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} ${name}(`,parameters,model);
  model.rim=scalarFunction(shader,`${language==='GLSL'?'vec2':'fn'} rimProfile(`,['inward']);
- if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','glare','intensity'],model);
- // Evaluate the actual two-light composition expression from each source.
- const shine=shader.match(/(?:float|let) stickerShine\s*=\s*([^;]+);/)[1];
- const composeShine=new Function('stickerGlare','p','stickerCenter','stickerCenter2',`return ${shine};`).bind(null,model.stickerGlare);
- const centerScale=Number(shader.match(/stickerCenter\s*=\s*-reflect\([^;]+?\)\.xy\s*\*\s*([.\d]+)/)[1]);
- model.shade=({uv,aspect=4,pose=[0,0,0],matrix=attitude(pose),intensity=1,height=160}={})=>{
-   const p=[(uv[0]-.5)*aspect,uv[1]-.5],d=distance(uv,aspect),step=1e-5;
-   const dx=(distance([uv[0]+step/aspect,uv[1]],aspect)-distance([uv[0]-step/aspect,uv[1]],aspect))/(2*step);
-   const dy=(distance([uv[0],uv[1]+step],aspect)-distance([uv[0],uv[1]-step],aspect))/(2*step);
-   const gd=norm([dx+.00001,dy+.00001]);
-   const rim=model.rim(Math.max(-d,0));
-   const normal=norm([gd[0]*rim[1],gd[1]*rim[1],1]);
-   const columns=[matrix.slice(0,3),matrix.slice(3,6),matrix.slice(6,9)];
-   const tilt=columns[2].slice(0,2);
-   const centers=[[-.12,-.66,.74],[.72,-.12,.68]].map(light=>{
-     const l=norm(light),local=columns.map(column=>dot(column,l)),nl=dot(local,normal);
-     return local.slice(0,2).map((v,i)=>(v-2*nl*normal[i])*centerScale);
-   });
-   const point=v=>({x:v[0],y:v[1]});
-   const glare=composeShine(point(p),point(centers[0]),point(centers[1]));
-   const base=[0,1,2].map(c=>model.stickerChannel(c,...uv,...tilt,aspect));
-   const color=base.map(c=>model.stickerSdr(c,glare,intensity));
-   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,glare,intensity)):color;
-   const aa=Math.max(1.5*(Math.abs(dx)+Math.abs(dy))/height,.0015);
-   const alpha=1-smoothstep(-aa,aa,d);
-   return {base,color,hdrColor,glare,centers,normal,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
+ if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity'],model);
+ model.shade=({uv,aspect=4,pose=[0,0,0],matrix=attitude(pose),intensity=1,height=148,transform,sourceBase=1}={})=>{
+   const width=aspect*height;
+   const tilt=transform??[model.stickerMotion(-matrix[2]),model.stickerMotion(matrix[5])];
+   // Public analytical UV is top-left, matching SwiftUI. Both fragment paths
+   // explicitly invert their legacy bottom-left Y before these scalar calls.
+   const glare=model.stickerGlare(...uv,...tilt,aspect);
+   const incoming=model.stickerReflectedBase(sourceBase,glare,intensity);
+   const base=[0,1,2].map(c=>model.stickerChannel(c,...uv,...tilt,width,height,incoming));
+   const color=base.map(model.stickerSdr);
+   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity)):color;
+   const d=distance(uv,aspect),alpha=1-smoothstep(-1.5/height,1.5/height,d);
+   return {base,color,hdrColor,glare,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
  };
  return model;
+}
+// Independent literal upstream oracle, not extracted from our shader. Based on
+// bpisano/Sticker commit301b9e0 FoilShader.metal, ReflectionShader.metal and
+// StickerEffectParameter.swift. Double precision, no Metal half emulation.
+export function upstream({uv,transform=[0,0],width=592,height=148,sourceBase=1,intensity=1}) {
+ const fract=x=>x-Math.floor(x);
+ const random=p=>fract(Math.sin(p[0]*12.9898+p[1]*78.233)*43758.5453);
+ const noise=p=>{
+  const i=p.map(Math.floor),f=p.map(fract),u=f.map(x=>x*x*(3-2*x));
+  const a=random(i),b=random([i[0]+1,i[1]]),c=random([i[0],i[1]+1]),d=random([i[0]+1,i[1]+1]);
+  return a*(1-u[0])+b*u[0]+(c-a)*u[1]*(1-u[0])+(d-b)*u[0]*u[1];
+ };
+ const position=[uv[0]*width,uv[1]*height],size=[width,height];
+ const offset=transform.map((t,i)=>t*size[i]*-150);
+ const q=position.map((p,i)=>p/(size[i]*3)+(offset[i]+size[i]*250)/(size[i]*3)*.01);
+ const normalized=[position[0]*(width/height),position[1]];
+ const checkerUV=normalized.map((p,i)=>p/size[i]*5*5);
+ const angle=45*Math.PI/180;
+ const rotated=[Math.cos(angle)*checkerUV[0]-Math.sin(angle)*checkerUV[1],Math.sin(angle)*checkerUV[0]+Math.cos(angle)*checkerUV[1]];
+ const pattern=(Math.floor(rotated[0])+Math.floor(rotated[1]))%2===0?0:1;
+ const jitter=random(position)*.1;
+ const foil=[.9+.25*Math.sin(q[0]*10+jitter),.9+.25*Math.cos(q[1]*10+jitter),.9+.25*Math.sin((q[0]+q[1])*10-jitter)];
+ const reflectionRadius=Math.min(width,height)/2/width;
+ const glare=1-smoothstep(0,reflectionRadius,Math.hypot(uv[0]-(.5+transform[0]),uv[1]-(.5+transform[1])));
+ const reflectionAlpha=clamp(.3*Math.max(intensity,0)*glare);
+ const reflected=sourceBase*(1-reflectionAlpha)+reflectionAlpha;
+ const luma=c=>c[0]*.299+c[1]*.587+c[2]*.114;
+ const blend=Math.max(smoothstep(.2,1,reflected)*.8,.3);
+ let color=foil.map(c=>reflected*(1-blend)+c*blend);
+ const contrast=(rgb,pattern)=>{const factor=1+(.2*pattern*luma(rgb));return rgb.map(c=>(c-.5)*factor+.5)};
+ color=contrast(color,pattern);
+ color=contrast(color,noise([position[0]/width*100,position[1]/height*100]));
+ return {color,glare,pattern};
 }
 export const models=[['GLSL',sourceModel(glsl,'GLSL')],['WGSL',sourceModel(wgsl,'WGSL')]];
 export function samples(model,options={},width=121,height=33) {

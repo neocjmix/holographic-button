@@ -127,13 +127,12 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   return vec4f(encoded * alpha, alpha);
 }
 
-// Sticker foil adapted from bpisano/Sticker FoilShader.metal and
-// ReflectionShader.metal (MIT); see THIRD_PARTY_NOTICES.md.
-// Keep the reference's independent X/Y/X+Y channels, brightness-weighted blend,
-// 45-degree checker contrast and separate soft radial reflection. Coordinates
-// are face-height units: both the diamonds and radial glare are aspect-correct.
-// Plus tilt in phase space translates the field opposite tilt, without moving
-// the fine diamond/grain layer or adding an input listener. No unused blend knob.
+// Sticker foil adapted from bpisano/Sticker at 301b9e0 (MIT).
+// Environment defaults, not the ShaderLibrary wrapper's scale=2 default.
+// Top-left UV; CSS-point random; only the checker uses aspect correction.
+// Reflection precedes foil. On this white fill it cannot bleach the foil RGB.
+// Canvas uses geometric coverage alpha: upstream contrast also alters alpha,
+// which is not portable to a premultiplied browser canvas. See reference tests.
 fn stickerRandom(x: f32, y: f32) -> f32 {
   return fract(sin(x * 12.9898 + y * 78.233) * 43758.5453);
 }
@@ -141,52 +140,58 @@ fn stickerNoise(x: f32, y: f32) -> f32 {
   let ix = floor(x); let iy = floor(y);
   let fx = fract(x); let fy = fract(y);
   let sx = fx * fx * (3. - 2. * fx); let sy = fy * fy * (3. - 2. * fy);
-  return mix(mix(stickerRandom(ix, iy), stickerRandom(ix + 1., iy), sx), mix(stickerRandom(ix, iy + 1.), stickerRandom(ix + 1., iy + 1.), sx), sy);
+  let a = stickerRandom(ix, iy); let b = stickerRandom(ix + 1., iy);
+  let c = stickerRandom(ix, iy + 1.); let d = stickerRandom(ix + 1., iy + 1.);
+  return mix(a, b, sx) + (c - a) * sy * (1. - sx) + (d - b) * sx * sy;
 }
 fn stickerDiamond(x: f32, y: f32, aspect: f32) -> f32 {
-  let dx = (x * aspect - y) * .70710678 * 18.;
-  let dy = (x * aspect + y) * .70710678 * 18.;
+  let dx = (x * aspect - y) * .7071067811865476 * 25.;
+  let dy = (x * aspect + y) * .7071067811865476 * 25.;
   return 2. * fract((floor(dx) + floor(dy)) * .5);
 }
-fn stickerPhaseX(x: f32, tiltX: f32, aspect: f32) -> f32 {
-  return 10. * (x * aspect * .42 + tiltX * .7 + .25);
+fn stickerPhase(position: f32, transform: f32) -> f32 {
+  return 10. * (position + 2.5 - 1.5 * transform) / 3.;
 }
-fn stickerPhaseY(y: f32, tiltY: f32) -> f32 {
-  return 10. * (y * .68 + tiltY * .7 + .25);
+// Adapter from the existing attitude matrix to source accelerometer motion.
+// Principal gravity-component tilt uses asin: continuous through upright poses.
+// Source maxRotation=pi/2 softening and /2 follow. This bounded adapter avoids
+// Euler branch jumps; it is not an exact CoreMotion roll/pitch reconstruction.
+fn stickerMotion(axis: f32) -> f32 {
+  let angle = asin(clamp(axis, -1., 1.));
+  return .5 * angle / (1. + abs(angle) / 1.5707963267948966);
 }
-fn stickerChannel(channel: f32, x: f32, y: f32, tiltX: f32, tiltY: f32, aspect: f32) -> f32 {
-  let phaseX = stickerPhaseX(x, tiltX, aspect);
-  let phaseY = stickerPhaseY(y, tiltY);
-  let jitter = stickerRandom(x * aspect * 160., y * 160.) * .1;
-  let balance = max(smoothstep(.2, 1., .88) * .86, .3);
-  let red = mix(.88, .86 + .24 * sin(phaseX + jitter), balance);
-  let green = mix(.88, .86 + .24 * cos(phaseY + jitter), balance);
-  let blue = mix(.88, .86 + .24 * sin(phaseX + phaseY - jitter), balance);
+fn stickerGlare(x: f32, y: f32, tx: f32, ty: f32, aspect: f32) -> f32 {
+  let dx = x - (.5 + tx); let dy = y - (.5 + ty);
+  let radius = min(aspect, 1.) / (2. * aspect);
+  return 1. - smoothstep(0., radius, sqrt(dx * dx + dy * dy));
+}
+fn stickerReflectedBase(base: f32, glare: f32, intensity: f32) -> f32 {
+  return mix(base, 1., clamp(.3 * max(intensity, 0.) * glare, 0., 1.));
+}
+fn stickerChannel(channel: f32, x: f32, y: f32, tx: f32, ty: f32, width: f32, height: f32, base: f32) -> f32 {
+  let phaseX = stickerPhase(x, tx); let phaseY = stickerPhase(y, ty);
+  let jitter = stickerRandom(x * width, y * height) * .1;
+  let balance = max(smoothstep(.2, 1., base) * .8, .3);
+  let red = mix(base, .9 + .25 * sin(phaseX + jitter), balance);
+  let green = mix(base, .9 + .25 * cos(phaseY + jitter), balance);
+  let blue = mix(base, .9 + .25 * sin(phaseX + phaseY - jitter), balance);
   let brightness = red * .299 + green * .587 + blue * .114;
-  let checkerContrast = mix(1., 1.12, stickerDiamond(x, y, aspect) * brightness);
+  let checkerContrast = mix(1., 1.2, stickerDiamond(x, y, width / height) * brightness);
   let checkerBrightness = (brightness - .5) * checkerContrast + .5;
-  let grainContrast = mix(1., 1.04, stickerNoise(x * aspect * 90., y * 90.) * checkerBrightness);
-  if (channel < .5) { return clamp((red - .5) * checkerContrast * grainContrast + .5, 0., 1.); }
-  if (channel < 1.5) { return clamp((green - .5) * checkerContrast * grainContrast + .5, 0., 1.); }
-  return clamp((blue - .5) * checkerContrast * grainContrast + .5, 0., 1.);
+  let grainContrast = mix(1., 1.2, stickerNoise(x * 100., y * 100.) * checkerBrightness);
+  if (channel < .5) { return (red - .5) * checkerContrast * grainContrast + .5; }
+  if (channel < 1.5) { return (green - .5) * checkerContrast * grainContrast + .5; }
+  return (blue - .5) * checkerContrast * grainContrast + .5;
 }
-fn stickerGlare(x: f32, y: f32, centerX: f32, centerY: f32, radius: f32) -> f32 {
-  let dx = x - centerX; let dy = y - centerY;
-  let blur = 1. - smoothstep(0., radius, sqrt(dx * dx + dy * dy));
-  return blur * blur;
+fn stickerSdr(base: f32) -> f32 {
+  return clamp(base, 0., 1.);
 }
-fn stickerSdr(base: f32, glare: f32, intensity: f32) -> f32 {
-  let light = max(intensity, 0.) * glare;
-  return mix(base, 1., .62 * light / (1. + light));
-}
-// Direct display-encoded foil: never run the old metal/(metal+.78) curve here.
-// Add bounded linear HDR energy ONLY inside the localized, moving glare.
-fn stickerHdr(base: f32, glare: f32, intensity: f32) -> f32 {
-  let sdr = stickerSdr(base, glare, intensity);
-  let excess = max(max(intensity, 0.) * glare - .16, 0.);
-  if (excess <= 0.) { return sdr; }
-  let linear = decodeSRGB(vec3f(sdr)).x + 3. * excess / (3. + excess);
-  return encodeSRGB(vec3f(linear)).x;
+// Preserve source over-white color at default1, without invented white glare.
+// Only this restrained extension is scaled by numeric specular; 0 gives SDR.
+fn stickerHdr(base: f32, intensity: f32) -> f32 {
+  let sdr = stickerSdr(base);
+  let strength = 2. * max(intensity, 0.) / (1. + max(intensity, 0.));
+  return sdr + max(base - 1., 0.) * strength;
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -209,22 +214,18 @@ fn stickerHdr(base: f32, glare: f32, intensity: f32) -> f32 {
   // Isolated fifth preset; methods 0..3 continue through the unchanged path.
   if (method > 3.5) {
     if (al < .01) { return vec4f(0.); }
-    let stickerNormal = normalize(vec3f(gd * rim.y, 1.));
-    let stickerTilt = u.worldFromDevice[2].xy;
-    let stickerLight = normalize(vec3f(-.12, -.66, .74));
-    let stickerLight2 = normalize(vec3f(.72, -.12, .68));
-    let stickerLocal = vec3f(dot(u.worldFromDevice[0].xyz, stickerLight), dot(u.worldFromDevice[1].xyz, stickerLight), dot(u.worldFromDevice[2].xyz, stickerLight));
-    let stickerLocal2 = vec3f(dot(u.worldFromDevice[0].xyz, stickerLight2), dot(u.worldFromDevice[1].xyz, stickerLight2), dot(u.worldFromDevice[2].xyz, stickerLight2));
-    let stickerCenter = -reflect(-stickerLocal, stickerNormal).xy * .65;
-    let stickerCenter2 = -reflect(-stickerLocal2, stickerNormal).xy * .65;
-    let stickerShine = .95 * stickerGlare(p.x, p.y, stickerCenter.x, stickerCenter.y, .68)
-                     + .32 * stickerGlare(p.x, p.y, stickerCenter2.x, stickerCenter2.y, .54);
-    let stickerBase = vec3f(stickerChannel(0., uv.x, uv.y, stickerTilt.x, stickerTilt.y, a),
-                             stickerChannel(1., uv.x, uv.y, stickerTilt.x, stickerTilt.y, a),
-                             stickerChannel(2., uv.x, uv.y, stickerTilt.x, stickerTilt.y, a));
-    let stickerRgb = vec3f(stickerHdr(stickerBase.r, stickerShine, specularIntensity),
-                            stickerHdr(stickerBase.g, stickerShine, specularIntensity),
-                            stickerHdr(stickerBase.b, stickerShine, specularIntensity));
+    let stickerUv = vec2f(uv.x, 1. - uv.y);
+    let stickerTilt = vec2f(-u.worldFromDevice[0].z, u.worldFromDevice[1].z);
+    let tx = stickerMotion(stickerTilt.x);
+    let ty = stickerMotion(stickerTilt.y);
+    let stickerShine = stickerGlare(stickerUv.x, stickerUv.y, tx, ty, a);
+    let stickerInput = stickerReflectedBase(1., stickerShine, specularIntensity);
+    let stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput),
+                             stickerChannel(1., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput),
+                             stickerChannel(2., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput));
+    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity),
+                            stickerHdr(stickerBase.g, specularIntensity),
+                            stickerHdr(stickerBase.b, specularIntensity));
     return vec4f(stickerRgb * al, al);
   }
   let grain = noise(uv * vec2f(720., 115.));
@@ -428,6 +429,7 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
           const width = Math.max(1, Math.round(rect.width * dpr));
           const height = Math.max(1, Math.round(rect.height * dpr));
           if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+          if (options.method === 4) values.set([Math.max(rect.width, 1), Math.max(rect.height, 1), 0, 0], 16);
           const m = options.matrix();
           values.set([m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1]);
           const intensity = options.specular();

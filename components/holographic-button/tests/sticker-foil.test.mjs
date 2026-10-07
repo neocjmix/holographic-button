@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {glsl,wgsl,bodyOf,models,samples,luminance,decode,attitude} from './sticker-foil-reference.mjs';
+import {glsl,wgsl,bodyOf,models,samples,luminance,decode,attitude,upstream} from './sticker-foil-reference.mjs';
 
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const chroma=c=>Math.max(...c)-Math.min(...c);
@@ -32,135 +32,84 @@ test('method 4 is isolated: removing only its additions restores both complete p
  assert.equal(hash(w),'fe7a6539af2b6597e6c6b9711ea7ec58d5aa2f542ea98d9ad8a336dbbcaa2fed');
 });
 
-test('new preset returns before old facet micro-normals and dark metallic presentation',()=>{
- assert.ok(glsl.indexOf('if(method>3.5)')<glsl.indexOf('float grain=noise('));
- assert.ok(wgsl.indexOf('if (method > 3.5)')<wgsl.indexOf('  let grain ='));
- const g=bodyOf(glsl,'if(method>3.5)'),w=bodyOf(wgsl,'if (method > 3.5)');
- assert.ok(g.includes('return;'));assert.ok(w.includes('return vec4f(stickerRgb * al, al)'));
- assert.ok(w.includes('if (al < .01) { return vec4f(0.); }'));
- for(const source of [g,w])for(const forbidden of ['metal/','metal /','presentHdr(','micro','material'])assert.equal(source.includes(forbidden),false,forbidden);
- assert.ok(g.includes('normalize(vec3(gd*rim.y,1.))'));
- assert.ok(w.includes('normalize(vec3f(gd * rim.y, 1.))'));
- assert.ok(g.includes('worldFromDevice[2].xy'));assert.ok(w.includes('u.worldFromDevice[2].xy'));
- assert.ok(g.includes('stickerRgb*al,al'));
+test('method4 uses top-left UV and CSS-point dimensions without changing original motion',()=>{
+ assert.match(glsl,/stickerUv=vec2\(uv.x,1.-uv.y\)/);
+ assert.match(wgsl,/stickerUv = vec2f\(uv.x, 1. - uv.y\)/);
+ for(const shader of [glsl,wgsl])assert.ok(shader.includes('material.x'));
 });
-
 for(const [language,model] of models) {
- test(`${language}: six simultaneous pastel hue zones with a bright silver base at three widths and poses`,()=>{
-  for(const aspect of [2,4,6])for(const pose of [[0,0,0],[12,-15,0],[-14,15,0]]){
-    const colors=samples(model,{aspect,pose,intensity:0}).map(s=>s.color);
-    const bins=[0,0,0,0,0,0];for(const c of colors){const bin=hueBin(c);if(bin>=0)bins[bin]++}
-    assert.ok(bins.every(n=>n/colors.length>.055),`${aspect} ${pose}: ${bins}`);
-    assert.ok(average(colors.map(luminance))>.84);
-    assert.ok(Math.min(...colors.map(luminance))>.68);
-    const silver=colors.filter(c=>chroma(c)<.08).length/colors.length;
-    assert.ok(silver>.12&&silver<.26,`silver fraction ${silver}`);
-    assert.ok(average(colors.map(chroma))>.17&&average(colors.map(chroma))<.24);
-    assert.ok(colors.flat().every(c=>c>=0&&c<=1));
+ test(`${language}: independent upstream oracle matches all RGB channels, dimensions and poses`,()=>{
+  for(const [width,height] of [[560,148],[320,148],[300,300],[30,30]])
+  for(const transform of [[0,0],[.15,-.12],[-.3,.21]])
+  for(const sourceBase of [1,.35])for(const intensity of [0,1,2]){
+   for(const uv of [[.117,.193],[.39,.61],[.501,.497],[.83,.76]]){
+    const expected=upstream({uv,transform,width,height,sourceBase,intensity});
+    const actual=model.shade({uv,transform,aspect:width/height,height,sourceBase,intensity});
+    assert.ok(delta(actual.base,expected.color)<1e-8,JSON.stringify({language,width,height,uv,actual:actual.base,expected:expected.color}));
+    assert.ok(Math.abs(actual.glare-expected.glare)<1e-12);
+   }
   }
  });
- test(`${language}: independent X/Y phases translate opposite tilt while the diamond remains fixed`,()=>{
-  for(const aspect of [2,4,6])for(const tilt of [-.3,-.05,0,.12,.3]){
-    const x=.57,y=.39;
-    const shiftedX=x-tilt*.7/(aspect*.42),shiftedY=y-tilt*.7/.68;
-    assert.ok(Math.abs(model.stickerPhaseX(shiftedX,tilt,aspect)-model.stickerPhaseX(x,0,aspect))<1e-12);
-    assert.ok(Math.abs(model.stickerPhaseY(shiftedY,tilt)-model.stickerPhaseY(y,0))<1e-12);
-  }
-  let changed=0;
-  for(let i=0;i<120;i++){
-    const uv=[.1+.8*(i%20)/19,.2+.6*Math.floor(i/20)/5];
-    const a=model.shade({uv,intensity:0}),b=model.shade({uv,intensity:0,pose:[12,-15,0]});
-    assert.equal(a.pattern,b.pattern);assert.ok(a.pattern===0||a.pattern===1);
-    if(delta(a.base,b.base)>.05)changed++;
-    assert.equal(delta(a.normal,[0,0,1]),0);assert.equal(delta(b.normal,[0,0,1]),0);
-  }
-  assert.ok(changed>100);
+ test(`${language}: phase density stays at 10/3 across both axes, unrelated to aspect`,()=>{
+  assert.ok(Math.abs(model.stickerPhase(1,0)-model.stickerPhase(0,0)-10/3)<1e-12);
+  assert.equal(model.stickerPhase(.4,.1),model.stickerPhase(.25,0));
  });
- test(`${language}: fixed diamond has fine, aspect-correct, alternating contrast`,()=>{
+ test(`${language}: source checkerScale is applied twice and noise remains attached`,()=>{
   let switches=0,last=model.stickerDiamond(.1,.4,4);
-  for(let i=1;i<=2000;i++){
-    const p=model.stickerDiamond(.1+.8*i/2000,.4,4);
-    switches+=p!==last?1:0;last=p;
-  }
-  assert.ok(switches>60&&switches<90,`diamond transitions ${switches}`);
-  for(const aspect of [2,4,6])for(const physicalX of [.1,.2,.31,.47,.7]){
-    assert.equal(model.stickerDiamond(physicalX/aspect,.41,aspect),model.stickerDiamond(physicalX/4,.41,4));
+  for(let i=1;i<=2000;i++){const p=model.stickerDiamond(.1+.8*i/2000,.4,4);switches+=p!==last?1:0;last=p}
+  assert.ok(switches>105&&switches<120,`${switches}`);
+  for(const uv of [[.15,.3],[.6,.7]])assert.equal(model.shade({uv,pose:[0,0,0]}).pattern,model.shade({uv,pose:[25,-20,100]}).pattern);
+ });
+ test(`${language}: reflection comes before foil, leaves white fill RGB unchanged`,()=>{
+  for(const uv of [[.5,.5],[.52,.49],[.9,.2]]){
+   assert.deepEqual(model.shade({uv,intensity:0}).base,model.shade({uv,intensity:3}).base);
+   const actual=model.shade({uv,sourceBase:.35,intensity:1});
+   const expected=upstream({uv,sourceBase:.35,width:592,height:148});
+   assert.ok(delta(actual.base,expected.color)<1e-8);
   }
  });
- test(`${language}: tilt response is continuous without angle wrapping or pattern shimmer`,()=>{
-  for(const angle of [-85,-45,-20,0,20,45,85])for(const uv of [[.18,.3],[.4,.5],[.76,.64]]){
-    const a=model.shade({uv,pose:[angle,angle*.6,15]}),b=model.shade({uv,pose:[angle+.0001,angle*.6,15]});
-    assert.ok(delta(a.base,b.base)<.00001);
-    assert.ok(Math.abs(a.glare-b.glare)<.00001);
-    assert.equal(a.pattern,b.pattern);
+ test(`${language}: matrix adapter ignores compass heading and stays finite`,()=>{
+  for(const pose of [[12,-15,0],[-35,22,0],[0,0,0]]){
+   const a=model.shade({uv:[.3,.5],pose});
+   for(const heading of [0,45,180,270]){
+    const b=model.shade({uv:[.3,.5],pose:[pose[0],pose[1],heading]});
+    assert.deepEqual(a.tilt,b.tilt);assert.deepEqual(a.base,b.base);
+   }
   }
- });
- test(`${language}: specular zero preserves foil and numeric strength controls only soft glare`,()=>{
-  const ss=samples(model,{intensity:0});
-  for(const s of ss){assert.deepEqual(s.color,s.base);assert.deepEqual(s.hdrColor,s.base)}
-  const uv=[.48,.29],zero=model.shade({uv,intensity:0});
-  let prior=zero;
-  for(const intensity of [.25,.5,1,2,3]){
-    const current=model.shade({uv,intensity});
-    assert.deepEqual(current.base,zero.base);assert.equal(current.glare,zero.glare);
-    assert.ok(luminance(current.color)>luminance(prior.color));
-    prior=current;
+  for(const beta of [-179,-90,0,90,179])for(const gamma of [-90,0,90]){
+   const s=model.shade({uv:[.3,.6],pose:[beta,gamma,0]});
+   assert.ok(s.tilt.every(x=>Number.isFinite(x)&&Math.abs(x)<Math.PI/4));
   }
-  for(const intensity of [0,.25,1,3,100]){
-    const edge=model.shade({uv:[.15,.5],intensity});
-    assert.equal(edge.glare,0);assert.deepEqual(edge.color,edge.base);assert.deepEqual(edge.hdrColor,edge.base);
-  }
- });
- test(`${language}: separate glare follows the existing matrix and fixed light positions`,()=>{
-  const a=model.shade({uv:[.5,.5],matrix:attitude([0,0,0])});
-  const b=model.shade({uv:[.5,.5],matrix:attitude([12,-15,0])});
-  assert.ok(Math.hypot(...a.centers[0].map((x,i)=>x-b.centers[0][i]))>.1);
-  assert.ok(Math.hypot(...a.centers[1].map((x,i)=>x-b.centers[1][i]))>.1);
-  for(const offset of [.05,.1,.2,.4,.67,.8]){
-    // Equal physical horizontal/vertical distances must have equal blur.
-    assert.equal(model.stickerGlare(offset,0,0,0,.68),model.stickerGlare(0,offset,0,0,.68));
-  }
-  const shader=language==='GLSL'?glsl:wgsl;
-  assert.match(shader,/stickerGlare\(p\.x,\s*p\.y,/);
-  assert.match(shader,/stickerLight\s*=\s*normalize\(vec3f?\(-\.12,\s*-\.66,\s*\.74\)\)/);
-  assert.match(shader,/stickerLight2\s*=\s*normalize\(vec3f?\(\.72,\s*-\.12,\s*\.68\)\)/);
  });
 }
-
-test('WGSL: HDR extension is localized to glare, with a bounded finite highlight and exact SDR outside it',()=>{
+test('actual GLSL and WGSL scalar source agrees; SDR clamps only at presentation',()=>{
+ for(const pose of [[0,0,0],[12,-15,0],[-20,25,130]])for(const aspect of [1,2,4,6]){
+  for(let i=0;i<90;i++){
+   const opts={uv:[.02+.96*(i%10)/9,.02+.96*Math.floor(i/10)/8],pose,aspect};
+   const a=models[0][1].shade(opts),b=models[1][1].shade(opts);
+   assert.deepEqual(a.base,b.base);assert.deepEqual(a.color,b.color);
+   assert.deepEqual(b.hdrColor,b.base.map(x=>Math.max(0,x)));
+  }
+ }
+});
+test('HDR preserves natural source excess at1; specular scales only bounded over-white color',()=>{
  const model=models[1][1];
- for(const pose of [[0,0,0],[12,-15,0],[-14,15,0]]){
-   const ss=samples(model,{pose});
-   const bright=ss.filter(s=>Math.max(...s.hdrColor)>1).length/ss.length;
-   assert.ok(bright>.07&&bright<.16,`HDR area ${bright}`);
-   assert.ok(Math.max(...ss.flatMap(s=>s.hdrColor))>1.1);
-   for(const s of ss){
-     if(s.glare<=.16)assert.deepEqual(s.hdrColor,s.color);
-     assert.ok(s.hdrColor.every((c,i)=>c>=s.color[i]&&Number.isFinite(c)&&decode(c)<4));
-   }
+ for(const base of [.1,.7,1,1.1,1.3]){
+  assert.equal(model.stickerHdr(base,0),Math.min(base,1));
+  assert.equal(model.stickerHdr(base,1),base);
+  let prior=0;
+  for(const intensity of [0,.25,.5,1,2,3,1000]){
+   const out=model.stickerHdr(base,intensity);
+   assert.ok(out>=prior&&out<=Math.min(base,1)+2*Math.max(base-1,0));prior=out;
+  }
  }
- for(const intensity of [0,.001,.25,1,3,1000])for(const base of [.1,.7,.86,1])for(const glare of [0,.01,.16,.5,1,1.27]){
-   const out=model.stickerHdr(base,glare,intensity);
-   assert.ok(Number.isFinite(out)&&out>=base&&decode(out)<4);
- }
- for(const base of [.7,.86,.99])assert.ok(Math.abs(model.stickerHdr(base,.16+1e-8,1)-model.stickerHdr(base,.16,1))<1e-7);
 });
 
-test('GLSL/WGSL actual scalar equations, assembled base, diamond, glare and SDR presentation agree numerically',()=>{
- const g=models[0][1],w=models[1][1];
- for(const aspect of [1.5,2,4,6])for(const pose of [[0,0,0],[12,-15,0],[-14,15,0],[30,-25,17]])for(const intensity of [0,.5,1,3]){
-   for(let i=0;i<60;i++){
-     const options={aspect,pose,intensity,uv:[.08+.84*(i%12)/11,.18+.64*Math.floor(i/12)/4]};
-     const a=g.shade(options),b=w.shade(options);
-     assert.deepEqual(a.base,b.base);assert.deepEqual(a.color,b.color);
-     assert.equal(a.pattern,b.pattern);assert.equal(a.glare,b.glare);assert.equal(a.alpha,b.alpha);
-     assert.deepEqual(a.normal,b.normal);
-   }
- }
- // The actual reference's third channel couples both phases, rather than a
- // recolored one-dimensional spectrum. No advertised-but-unused blend factor.
- for(const shader of [glsl,wgsl]){
-   assert.match(bodyOf(shader,shader===glsl?'float stickerChannel(':'fn stickerChannel('),/sin\(phaseX \+ phaseY - jitter\)/);
-   assert.equal(shader.includes('blendFactor'),false);
+for(const [language,model] of models)test(`${language}: gravity adapter is continuous across upright and inverted handset poses`,()=>{
+ for(const beta of [-180,-90,0,90,180])for(const gamma of [-90,-20,1,20,90]){
+  const a=model.shade({uv:[.39,.61],pose:[beta-.01,gamma,30]});
+  const b=model.shade({uv:[.39,.61],pose:[beta+.01,gamma,30]});
+  assert.ok(delta(a.tilt,b.tilt)<.001,JSON.stringify({beta,gamma,a:a.tilt,b:b.tilt}));
+  assert.ok(delta(a.base,b.base)<.002);
  }
 });

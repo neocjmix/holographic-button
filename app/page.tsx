@@ -47,10 +47,10 @@ export default function Home(){
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.6</em></a>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.7</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.6 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.7 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -78,7 +78,7 @@ export default function Home(){
      </div>
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
      <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
-     <label className="range-field"><span>Surface specular <b>{specular.toFixed(2)}×</b></span><input aria-label="Surface specular intensity" type="range" min="0" max="3" step="0.05" value={specular} onChange={e=>setSpecular(Number(e.target.value))}/></label>
+     <label className="range-field"><span>{variant==="sticker-foil"?"Foil HDR strength":"Surface specular"} <b>{specular.toFixed(2)}×</b></span><input aria-label="Surface specular intensity" type="range" min="0" max="3" step="0.05" value={specular} onChange={e=>setSpecular(Number(e.target.value))}/></label>
     </div>
     <div className="live-stage">
      <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>

@@ -1,6 +1,4 @@
-> New in preview.6: `variant="sticker-foil"` adds a bright, spatial pastel foil preset. The four existing variants are preserved. See THIRD_PARTY_NOTICES.md for the MIT reference attribution.
-
-> v1.0.0-preview.6: isolated HDR preview, not published to npm. Original textures and behavior are preserved. This iteration flattens the macro face and outer edge, rounds the inset ridge and broadens the tin-like reflection without moving the lights; supported HDR displays use WebGPU extended-range presentation, otherwise the original WebGL renderer remains active.
+> v1.0.0-preview.7: isolated HDR preview, not published to npm. `sticker-foil` now follows bpisano/Sticker’s default color equations and pattern settings. The four existing variants and their CSS/motion are unchanged from preview.6. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for adaptation details and attribution.
 
 # @neocjmix/holographic-button
 
@@ -13,7 +11,7 @@ A physically directed holographic WebGL button for React. Its reflective surface
 
 ## Features
 
-- Four distinct optical models rather than one shader with color presets.
+- Four optical models plus a separate reference-derived Sticker Foil preset.
 - World-fixed specular lighting and a smoothly raised inset reflective rim.
 - Device orientation, motion fallback, screen rotation correction, and pointer fallback.
 - A real `<button>` with native events, form props, accessibility attributes, and DOM refs.
@@ -90,7 +88,9 @@ The broad, neutral metal specular preset is part of the material design rather t
 
 The internal preset is informed by common PBR material concepts but uses a compact custom WebGL 1 approximation rather than claiming glTF conformance.
 
-Variants: `spectral-film`, `brushed-foil`, `thin-film`, and `facet-chrome`.
+Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, and `sticker-foil`.
+
+Sticker Foil follows a two-dimensional foil composition, not the four materials’ world-lit metal model. Its default SDR color uses the reference’s white base. The numeric specular control scales over-white HDR headroom for this preset; SDR white-base RGB does not change with that control.
 
 ## Motion permission
 
