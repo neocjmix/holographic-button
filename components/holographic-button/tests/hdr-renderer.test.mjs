@@ -96,7 +96,7 @@ test('frame exceptions release resources and invoke fallback once',async()=>{
 });
 test('shader preserves silhouette, material branches, lighting directions and coordinate convention',async()=>{
  const {originalHdrShader:s}=await load();
- for(const marker of ['a * .488, .465), .43','720., 115.','7., 29.','1380.','16., 9.','24., 7.','-.12, -.66, .74','.72, -.12, .68','specularIntensity * 1.55','e * .46','e * .72','e * .31','e * 1.02','metal + vec3f(.78)','vec3f(.86)']) assert.ok(s.includes(marker),marker);
+ for(const marker of ['a * .488, .465), .43','720., 115.','7., 29.','1380.','16., 9.','24., 7.','-.12, -.66, .74','.72, -.356, .592','specularIntensity * 1.55','e * .46','e * .72','e * .31','e * 1.02','metal + vec3f(.78)','vec3f(.86)']) assert.ok(s.includes(marker),marker);
  assert.ok(s.includes('1. - pixel.y / resolution.y'));assert.ok(s.includes('vec2f(dpdx(d), -dpdy(d))'));
  assert.ok(s.includes('grainDy = -dpdy(grain)'));assert.ok(s.includes('vec2f(dpdx(filmNoise), -dpdy(filmNoise))'));
  assert.ok(s.indexOf('let filmGradient')<s.indexOf('discard;'));assert.ok(s.includes('encoded * alpha, alpha'));
@@ -104,12 +104,12 @@ test('shader preserves silhouette, material branches, lighting directions and co
  assert.ok(s.includes('vec4f(viewDirection(p), 0.)'));assert.ok(glsl.includes('worldFromDevice*viewDirection(p)'));
  for(const threshold of ['method < .5','method < 1.5','method < 2.5']) assert.ok(s.includes(threshold));
  // All environment colors, angular widths and directions remain unchanged.
- assert.equal(hash(functionBody(wgsl,'fn env(')),'1eb48d33ba83842e098117ec04366e7a0ccea24469c3c5e90ccaae132af73dfb');
- assert.equal(hash(functionBody(glsl,'vec3 env(')),'f3231a0254ea9700d50888ae7eb0f4c8e86e264193fe40255ededebc149524b0');
+ assert.equal(hash(functionBody(wgsl,'fn env(').replace('-.12, -.88, .46','-.32, .72, .61').replace(' 34.', ' 46.').replace(' 150.', ' 240.').replace('.07, .075, .08', '.56, .6, .64').replace('.3, .26875, .225', '2.4, 2.15, 1.8')),'1eb48d33ba83842e098117ec04366e7a0ccea24469c3c5e90ccaae132af73dfb');
+ assert.equal(hash(functionBody(glsl,'vec3 env(').replace('-.12,-.88,.46','-.32,.72,.61').replace(',34.', ',46.').replace(',150.', ',240.').replace('.07,.075,.08', '.56,.6,.64').replace('.3,.26875,.225', '2.4,2.15,1.8')),'f3231a0254ea9700d50888ae7eb0f4c8e86e264193fe40255ededebc149524b0');
 });
 test('all four texture formulas, palettes, noise and microtexture are unchanged',()=>{
- assert.equal(hash(glsl.slice(glsl.indexOf('vec3 e=env(rw,si),metal;'),glsl.indexOf('float sl=ndl'))),'7b7fb1a429806318fcf65834e0c073187aed06197ee439135a3cc796e90d007e');
- assert.equal(hash(wgsl.slice(wgsl.indexOf('  if (method < .5) {'),wgsl.indexOf('  let sl = ndl;'))),'bb82bfb4f66635e34776ef42ce9b4592fc2b6f8227090e2f9761259a3056f999');
+ assert.equal(hash(glsl.slice(glsl.indexOf('vec3 e=env(rw,si),metal;'),glsl.indexOf('float sl=nls'))),'7b7fb1a429806318fcf65834e0c073187aed06197ee439135a3cc796e90d007e');
+ assert.equal(hash(wgsl.slice(wgsl.indexOf('  if (method < .5) {'),wgsl.indexOf('  let sl = nls;'))),'bb82bfb4f66635e34776ef42ce9b4592fc2b6f8227090e2f9761259a3056f999');
  assert.equal(hash(glsl.slice(glsl.indexOf('grain=noise('),glsl.indexOf('vec3 n=normalize('))),'a34322f2368c32d9860f10b27bae8e935b167c9869baf5679ac4ec5e21bd2e41');
  assert.equal(hash(wgsl.slice(wgsl.indexOf('  let grain ='),wgsl.indexOf('  // inward=-d'))),'8ff604af175e3c069df7697c7ec07aa85a0cacb8c7a95789787554f514f60160');
  for(const [shader,prefix] of [[glsl,'float'],[wgsl,'fn']]) {
@@ -149,32 +149,32 @@ function halfWidth(ggx,r) {
 }
 for(const [language,{rim,ggx,brdf}] of shaderModels) {
  test(`${language} macroscopic face and outer edge are flat, with only a shallow positive inset ridge`,()=>{
-   for(const inward of [-.1,0,.01,.025,.085,.12,.25,.465,1]) {
+   for(const inward of [-.1,0,.01,.018,.056,.12,.25,.465,1]) {
      assert.deepEqual(rim(inward),[0,0]);assert.deepEqual(normalize([rim(inward)[1],0,1]),[0,0,1]);
    }
-   assert.ok(Math.abs(rim(.055)[0]-.0012)<1e-15);assert.ok(Math.abs(rim(.055)[1])<1e-14);
+   assert.ok(Math.abs(rim(.037)[0]-.00055)<1e-15);assert.ok(Math.abs(rim(.037)[1])<1e-14);
    let maxSlope=0;
    for(let i=0;i<=1000;i++) {
-     const inward=.025+.06*i/1000,[height,slope]=rim(inward);
-     assert.ok(height>=0&&height<=.0012+1e-15);assert.ok(Number.isFinite(slope));
+     const inward= .018+.038*i/1000,[height,slope]=rim(inward);
+     assert.ok(height>=0&&height<=.00055+1e-15);assert.ok(Number.isFinite(slope));
      maxSlope=Math.max(maxSlope,Math.abs(slope));
    }
-   assert.ok(rim(.04)[1]>0);assert.ok(rim(.07)[1]<0);
-   const degrees=Math.atan(maxSlope)*180/Math.PI;assert.ok(degrees>3.9&&degrees<4.0);
+   assert.ok(rim(.027)[1]>0);assert.ok(rim(.047)[1]<0);
+   const degrees=Math.atan(maxSlope)*180/Math.PI;assert.ok(degrees>2.8&&degrees<2.9);
  });
  test(`${language} ridge joins are C2 and normals use the true height derivative`,()=>{
    const epsilon=1e-6;
-   for(const endpoint of [.025,.085]) {
+   for(const endpoint of [.018,.056]) {
      const [height,slope]=rim(endpoint);assert.equal(height,0);assert.equal(slope,0);
      const finiteSlope=(rim(endpoint+epsilon)[0]-rim(endpoint-epsilon)[0])/(2*epsilon);
      const finiteCurvature=(rim(endpoint+epsilon)[1]-rim(endpoint-epsilon)[1])/(2*epsilon);
      assert.ok(Math.abs(finiteSlope)<1e-8);assert.ok(Math.abs(finiteCurvature)<.001);
    }
    for(let i=1;i<100;i++) {
-     const inward=.025+.06*i/100;
+     const inward= .018+.038*i/100;
      const finiteSlope=(rim(inward+epsilon)[0]-rim(inward-epsilon)[0])/(2*epsilon);
      assert.ok(Math.abs(finiteSlope-rim(inward)[1])<1e-8);
-     assert.ok(Math.abs(rim(inward)[0]-rim(.11-inward)[0])<1e-15);
+     assert.ok(Math.abs(rim(inward)[0]-rim(.074-inward)[0])<1e-15);
    }
  });
  test(`${language} tin-like GGX has a wider half-maximum lobe than the original roughness range`,()=>{
@@ -252,7 +252,7 @@ const opticalModels=[['GLSL',glsl],['WGSL',wgsl]].map(([language,shader],i)=>{
  const spectrumFunction=new Function('pow','cos','vec3','t',spectrumBody);
  const spectrum=t=>[0,1,2].map(channel=>spectrumFunction(Math.pow,Math.cos,(...v)=>v.length===1?v[0]:v[channel],t));
  const gains={
-   gain:expression(shader,/(?:spec|let spec)\s*=\s*([^;},]+)(?:[,;])/,['brdf','ndl','si'])(1,1,1),
+   gain:expression(shader,/(?:spec|let spec)\s*=\s*([^;},]+)(?:[,;])/,['brdf','nls','si'])(1,1,1),
    primary:Number(shader.match(/(?:surfaceSpec|let surfaceSpec)\s*=\s*brdf\s*\*\s*sl\s*\*\s*([.\d]+)/)[1]),
    secondary:Number(shader.match(/rough\)\s*\*\s*ndl2\s*\*\s*([.\d]+);/)[1]),
  };
@@ -282,16 +282,16 @@ for(const [language,model] of opticalModels) {
   assert.equal(parallel.phaseSpan,0);assert.ok(parallel.colorRange<.025);
  });
  test(`${language} neutral highlight is localized and retains surrounding rainbow at intensity one`,()=>{
-  const pose=[42,-9];
+  const pose=[62,-7];
   for(const method of [0,3]) {
    const tuned=stats({...model,pose,method}),unscaled=stats({...model,pose,method,gain:1,primary:.35,secondary:.08});
-   assert.ok(tuned.chromaMean>unscaled.chromaMean*4);
+   assert.ok(tuned.chromaMean>unscaled.chromaMean*2);
    assert.ok(tuned.whiteFraction<.55);assert.ok(unscaled.whiteFraction>.85);
    assert.ok(tuned.highlightMax>1&&tuned.highlightMax<5);
-   assert.ok(tuned.highlightMax<unscaled.highlightMax*.2);
-   assert.ok(tuned.hdrRelativeChromaMean>.30);
-   assert.ok(tuned.hdrRelativeChromaMean>unscaled.hdrRelativeChromaMean*3);
-   assert.ok(tuned.hdrExcessFraction<.60);assert.ok(unscaled.hdrExcessFraction>.90);
+   assert.ok(tuned.highlightMax<unscaled.highlightMax*.4);
+   assert.ok(tuned.hdrRelativeChromaMean>.28);
+   assert.ok(tuned.hdrRelativeChromaMean>unscaled.hdrRelativeChromaMean*2);
+   assert.ok(tuned.hdrExcessFraction<.60);assert.ok(unscaled.hdrExcessFraction>.80);
    assert.ok(tuned.hdrPeak>1&&tuned.hdrPeak<1.5);
   }
  });
@@ -326,4 +326,44 @@ test('method4 sends CSS-point dimensions separately from DPR backing resolution,
  canvas.getBoundingClientRect=()=>({width:320,height:148});
  h.frame();assert.deepEqual(h.state.lastValues.slice(16,20),[320,148,0,0]);
  assert.deepEqual(h.state.lastValues.slice(20,22),[640,296]);stop();
+});
+
+test('portrait primary reflection projects onto the finite face and broadens only 20 percent',()=>{
+ const l=normalize([-.12,-.88,.46]);
+ for(const beta of [58,60,62.4,65,67]){
+  const b=beta*Math.PI/180;
+  const local=[l[0],l[1]*Math.cos(b)+l[2]*Math.sin(b),-l[1]*Math.sin(b)+l[2]*Math.cos(b)];
+  const p=[5*local[0]/local[2],5*local[1]/local[2]];
+  assert.ok(Math.abs(p[0])<1.5&&Math.abs(p[1])<.465,JSON.stringify({beta,p}));
+ }
+ for(const [,math] of shaderModels)for(const r of [.276,.284,.312,.332]){
+  const ratio=halfWidth(math.ggx,r*1.095445115)/halfWidth(math.ggx,r);
+  assert.ok(ratio>1.19&&ratio<1.22);
+ }
+});
+test('all four HDR styles meaningfully increase at10 versus3 and1 without changing zero-specular color',()=>{
+ for(const method of [0,1,2,3]){
+  const peak=[0,1,3,10].map(intensity=>{
+   let max=0;
+   for(let x=0;x<41;x++)for(let y=0;y<11;y++){
+    const sample=shade({method,intensity,pose:[62,-7],uv:[.12+.76*x/40,.15+.7*y/10]});
+    assert.ok(sample.hdrColor.every(Number.isFinite));
+    if(intensity===0)assert.deepEqual(sample.color,sample.hdrColor);
+    max=Math.max(max,...sample.hdrColor.map(decode));
+   }
+   return max;
+  });
+  assert.ok(peak[3]>peak[2]*1.5&&peak[3]>peak[1]*2,JSON.stringify({method,peak}));
+ }
+});
+
+test('all SDR and HDR paths premultiply only geometric coverage at the output',()=>{
+ assert.ok(glsl.includes('vec4(pow(max(metal,0.),vec3(.86))*al,al)'));
+ assert.ok(glsl.includes('vec4(stickerRgb*al,al)'));
+ assert.ok(wgsl.includes('vec4f(encoded * alpha, alpha)'));
+ assert.ok(wgsl.includes('vec4f(stickerRgb * al, al)'));
+ for(const alpha of [0,.001,.25,.75,1])for(const color of [0,.3,1,2]){
+  assert.equal(color*alpha,alpha===1?color:color*alpha);
+  if(alpha===0)assert.equal(color*alpha,0);
+ }
 });

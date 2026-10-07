@@ -1,26 +1,25 @@
 # v1 HDR preview
 
-Version **1.0.0-preview.7** corrects the fifth `sticker-foil` preset against [bpisano/Sticker at 301b9e0](https://github.com/bpisano/Sticker/tree/301b9e0fb802c01edb2ed25695b3ba62e9c61da3). Preview.6 was visually rejected: it changed the reference's phase density, defaults and compositing order, producing repeated color patches and an unrelated white glare.
+Version **1.0.0-preview.8** applies the next visual feedback after preview.7: larger Sticker Foil texture, more metal gloss, accessible highlight angle, slightly wider/softer reflection, a thinner stamped rim and a stronger HDR control range.
 
-## Reference fidelity
+## Sticker Foil
 
-- Top-left normalized coordinates; color scale 3, without an aspect multiplier on color phase
-- White source, contrast .9, sinusoidal amplitude .25 and brightness-weighted intensity .8
-- Surface-fixed diamond checker using the source's effective 5 × 5 scale, contrast 1.2
-- Source noise scale 100 and contrast 1.2; gradient jitter evaluated in view-point coordinates
-- Reference reflection precedes the foil. On a white base it does not change RGB, so the preview no longer adds a separate white light on top
-- Unclipped source foil values are retained for HDR rather than clamping them and inventing a whitening bloom
+The reference-derived broad pastel color field is retained: normalized top-left phase at scale 3, white source, contrast .9, amplitude .25, brightness-weighted intensity .8. The checker changes from effective scale 25 to **12.5**, doubling its linear size. This is now an intentional deviation from [bpisano/Sticker](https://github.com/bpisano/Sticker/tree/301b9e0fb802c01edb2ed25695b3ba62e9c61da3), approved to avoid the fine fabric-like appearance.
 
-## Cross-framework adaptations
+A separate world-lit metallic gloss is added without replacing the foil color field. The numeric specular control now affects this gloss in SDR as well as HDR. Reference equations and deliberate material adaptations are tested separately; visual changes are not described as exact upstream parity.
 
-The existing device-attitude matrix is mapped to softened rotation/normalized motion. It is not SwiftUI's own motion runtime. Canvas coverage alpha remains valid and premultiplied; the source's contrast operations on alpha are not reproduced. The existing capsule, inset rim styling, DOM label and four earlier materials are retained, rather than copying the sample sticker artwork.
+## Shared highlight and rim
 
-At numeric specular 1, HDR retains the reference's over-white foil values. The control scales only this excess for Sticker Foil; its white-base SDR color stays the same. The other four variants retain their existing specular behavior.
+The specular light is calibrated toward a nominal portrait pitch around 62 degrees instead of 42 degrees, with a modestly wider and softer lobe. This is a deterministic design pose, not a measurement of the user's posture. Existing color-incidence formulas retain their original light so the adjustment does not unintentionally retune Thin Film and the other palettes. Fixed world-space lighting still depends on device heading.
 
-All five presets remain together in the original demo; the playground starts on Sticker Foil. Reference equations are checked against an independent source-derived analytical oracle, in addition to GLSL/WGSL parity and preservation tests. These are not GPU or physical HDR display tests: the cloud browser has no GPU, and iPhone display appearance still needs human review.
+The white environment highlight is aligned with the revised specular direction. Its radiance is reduced to avoid washing out the now-aligned face at the default setting. Ambient colors and existing material texture formulas remain intact. The macro face and outermost edge remain flat, with a shallow smooth inset crimp. Static white bevel overlays and heavy dark extrusion are removed so shader illumination supplies the moving rim glint.
 
-## Scope and publication
+## Strength and validation limits
 
-MIT reference attribution is included in the package and isolated preview. Pokémon CSS was visual research only; no GPL code or assets were copied. This is an artistic foil effect, not a full diffraction simulation.
+The demo slider spans **0–10**, default 1. Stronger settings increase highlight headroom, rather than uniformly lifting the entire background. The existing materials’ linear highlight shoulder grows from 3 at default to 7.5 at strength 10; foil intensity uses 11i/(10+i), giving 5.5 at 10 instead of saturating near 2. The value is an artistic intensity control, not a claim of calibrated nits or a physical brightness multiplier.
 
-Package manifests retain `private: true` and publication guards. Both repositories are public. This preview does not authorize an npm release, a main merge, or replacing the original demo.
+The original motion hook, native button behavior, label and unrelated demo styling remain preserved. WebGL edge RGB now correctly follows the canvas premultiplied-alpha contract, removing a latent bright fringe exposed by the transparent rim styling; fully covered interior colors are unchanged. CPU analytical comparisons, shader tests and compilation checks are not physical HDR display validation; the cloud browser has no GPU.
+
+## Publication
+
+MIT reference attribution remains included. No GPL code/assets were copied. Both repositories are public, but package publication guards remain enabled. No npm release, main merge, tag or replacement of the original demo is authorized.

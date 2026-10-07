@@ -1,4 +1,4 @@
-> v1.0.0-preview.7: isolated HDR preview, not published to npm. `sticker-foil` now follows bpisano/Sticker’s default color equations and pattern settings. The four existing variants and their CSS/motion are unchanged from preview.6. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for adaptation details and attribution.
+> v1.0.0-preview.8: isolated HDR preview, not published to npm. Sticker Foil retains the reference-derived pastel field with a larger pattern and added metal gloss. The shared highlight angle/width and inset rim are refined; the demo strength range is 0–10. Existing texture formulas and interaction behavior are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
 
 # @neocjmix/holographic-button
 
@@ -90,7 +90,7 @@ The internal preset is informed by common PBR material concepts but uses a compa
 
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, and `sticker-foil`.
 
-Sticker Foil follows a two-dimensional foil composition, not the four materials’ world-lit metal model. Its default SDR color uses the reference’s white base. The numeric specular control scales over-white HDR headroom for this preset; SDR white-base RGB does not change with that control.
+Sticker Foil combines the reference-derived pastel field with a larger diamond pattern and a restrained world-lit gloss. Numeric specular controls its gloss in both SDR and HDR. HDR-capable displays retain additional highlight headroom. The demo allows 0–10; perceived brightness depends on display headroom and is not a calibrated luminance multiple.
 
 ## Motion permission
 

@@ -1,13 +1,16 @@
 /**
  * WebGPU presentation matching the WebGL material in this preview.
- * The four texture branches, world-space light positions, noise and motion retain
+ * The four texture branches, noise and motion retain
  * the original design. The shared macro normal, inset ridge and metal reflection
  * are deliberately refined in preview.4, identically in GLSL and WGSL.
  *
- * HDR presentation is the only added shading step:
+ * Preview.8 retargets specular lights to portrait pitch, broadens them 20%, and
+ * adds controlled Sticker Foil gloss. Original incidence still drives colors.
+ * HDR presentation:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
  *   E = max(M - max(B, 1), 0)        specular-only excess above the SDR shoulder
- *   H = decodeSRGB(C) + 3 E/(3 + E) bounded highlight extension, <4x SDR white
+ *   H = decodeSRGB(C) + K E/(K + E), K=3 at intensity<=1, 7.5 at10
+ *   Default headroom is unchanged; high slider values deliberately grow it.
  *   output = encodeSRGB(H) * alpha
  * B is the SAME material evaluated with specular intensity zero. Thus no lift
  * is added to the base material, or at intensity zero, and M <= 1 is unchanged.
@@ -75,11 +78,11 @@ fn ggxAniso(n: vec3f, h: vec3f, t0: vec3f, r: f32, a: f32, rot: f32) -> f32 {
 // A tiny positive bead with C2 joins to the flat outer edge and central face.
 // Its analytic inward derivative controls the normal; height adds no brightness.
 fn rimProfile(inward: f32) -> vec2f {
-  let t = (inward - .025) / .06;
+  let t = (inward - .018) / .038;
   if (t <= 0. || t >= 1.) { return vec2f(0.); }
   let q = 1. - t;
-  return vec2f(64. * .0012 * t * t * t * q * q * q,
-               (192. * .0012 / .06) * t * t * q * q * (1. - 2. * t));
+  return vec2f(64. * .00055 * t * t * t * q * q * q,
+               (192. * .00055 / .038) * t * t * q * q * (1. - 2. * t));
 }
 // Virtual viewer at (0,0,5) in device coordinates, five face-height units away.
 // This artistic optical perspective restores a reflected color sweep on a flat
@@ -105,9 +108,9 @@ fn conductorBRDF(nh: f32, nl: f32, nv: f32, vh: f32, r: f32) -> f32 {
 fn env(r: vec3f, si: f32) -> vec3f {
   var c = mix(vec3f(.012, .014, .019), vec3f(.095, .105, .125), smoothstep(-.35, .7, r.y));
   c += exp(-pow(abs(r.y + .08) * 7., 2.)) * vec3f(.1, .115, .13);
-  let d = normalize(vec3f(-.32, .72, .61));
-  c += (pow(max(dot(r, d), 0.), 46.) * vec3f(.56, .6, .64)
-      + pow(max(dot(r, d), 0.), 240.) * vec3f(2.4, 2.15, 1.8)) * si;
+  let d = normalize(vec3f(-.12, -.88, .46));
+  c += (pow(max(dot(r, d), 0.), 34.) * vec3f(.07, .075, .08)
+      + pow(max(dot(r, d), 0.), 150.) * vec3f(.3, .26875, .225)) * si;
   c += (pow(max(dot(r, normalize(vec3f(.88, .05, .47))), 0.), 90.) * vec3f(.32, .08, .13)
       + pow(max(dot(r, normalize(vec3f(-.86, -.12, .5))), 0.), 110.) * vec3f(.06, .13, .27)) * si;
   return c;
@@ -121,7 +124,8 @@ fn encodeSRGB(c: vec3f) -> vec3f {
 fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   let legacy = pow(max(metal / (metal + vec3f(.78)), vec3f(0.)), vec3f(.86));
   let excess = max(metal - max(nonSpecular, vec3f(1.)), vec3f(0.));
-  let linearHDR = decodeSRGB(legacy) + 3. * excess / (vec3f(3.) + excess);
+  let headroom = 3. + .5 * clamp(u.settings.w - 1., 0., 9.);
+  let linearHDR = decodeSRGB(legacy) + headroom * excess / (vec3f(headroom) + excess);
   // Avoid a round-trip at ordinary values: exact original encoded color.
   let encoded = select(legacy, encodeSRGB(linearHDR), excess > vec3f(0.));
   return vec4f(encoded * alpha, alpha);
@@ -145,8 +149,8 @@ fn stickerNoise(x: f32, y: f32) -> f32 {
   return mix(a, b, sx) + (c - a) * sy * (1. - sx) + (d - b) * sx * sy;
 }
 fn stickerDiamond(x: f32, y: f32, aspect: f32) -> f32 {
-  let dx = (x * aspect - y) * .7071067811865476 * 25.;
-  let dy = (x * aspect + y) * .7071067811865476 * 25.;
+  let dx = (x * aspect - y) * .7071067811865476 * 12.5;
+  let dy = (x * aspect + y) * .7071067811865476 * 12.5;
   return 2. * fract((floor(dx) + floor(dy)) * .5);
 }
 fn stickerPhase(position: f32, transform: f32) -> f32 {
@@ -183,15 +187,19 @@ fn stickerChannel(channel: f32, x: f32, y: f32, tx: f32, ty: f32, width: f32, he
   if (channel < 1.5) { return (green - .5) * checkerContrast * grainContrast + .5; }
   return (blue - .5) * checkerContrast * grainContrast + .5;
 }
-fn stickerSdr(base: f32) -> f32 {
-  return clamp(base, 0., 1.);
+fn stickerGloss(radiance: f32, intensity: f32) -> f32 {
+  let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
+  return max(radiance, 0.) / (1. + max(radiance, 0.)) * strength;
 }
-// Preserve source over-white color at default1, without invented white glare.
-// Only this restrained extension is scaled by numeric specular; 0 gives SDR.
-fn stickerHdr(base: f32, intensity: f32) -> f32 {
-  let sdr = stickerSdr(base);
-  let strength = 2. * max(intensity, 0.) / (1. + max(intensity, 0.));
-  return sdr + max(base - 1., 0.) * strength;
+fn stickerSdr(base: f32, gloss: f32) -> f32 {
+  return mix(clamp(base, 0., 1.), 1., .36 * gloss / (1. + gloss));
+}
+// Preserve source over-white color and add a localized, bounded metal gloss.
+// Numeric specular controls both; zero restores the source SDR color exactly.
+fn stickerHdr(base: f32, intensity: f32, gloss: f32) -> f32 {
+  let sdr = stickerSdr(base, gloss);
+  let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
+  return sdr + max(base - 1., 0.) * strength + .30 * gloss / (1. + .2 * gloss) * (.65 + .35 * clamp(base, 0., 1.));
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -211,7 +219,7 @@ fn stickerHdr(base: f32, intensity: f32) -> f32 {
   let gd = normalize(vec2f(dpdx(d), -dpdy(d)) + vec2f(.00001));
   let inward = max(-d, 0.);
   let rim = rimProfile(inward);
-  // Isolated fifth preset; methods 0..3 continue through the unchanged path.
+  // Isolated fifth texture; all presets share the portrait specular light.
   if (method > 3.5) {
     if (al < .01) { return vec4f(0.); }
     let stickerUv = vec2f(uv.x, 1. - uv.y);
@@ -223,9 +231,16 @@ fn stickerHdr(base: f32, intensity: f32) -> f32 {
     let stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput),
                              stickerChannel(1., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput),
                              stickerChannel(2., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput));
-    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity),
-                            stickerHdr(stickerBase.g, specularIntensity),
-                            stickerHdr(stickerBase.b, specularIntensity));
+    let sn = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y, 1.)), 0.)).xyz);
+    let sv = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
+    let slight = normalize(vec3f(-.12, -.88, .46));
+    let sh = normalize(slight + sv);
+    let snl = max(dot(sn, slight), 0.);
+    let snv = clamp(dot(sn, sv), .001, 1.);
+    let gloss = stickerGloss(conductorBRDF(max(dot(sn, sh), 0.), snl, snv, clamp(dot(sv, sh), 0., 1.), .32) * snl * .25, specularIntensity);
+    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, gloss),
+                            stickerHdr(stickerBase.g, specularIntensity, gloss),
+                            stickerHdr(stickerBase.b, specularIntensity, gloss));
     return vec4f(stickerRgb * al, al);
   }
   let grain = noise(uv * vec2f(720., 115.));
@@ -246,18 +261,20 @@ fn stickerHdr(base: f32, intensity: f32) -> f32 {
   let vw = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
   let rw = normalize(reflect(-vw, nw));
   let l = normalize(vec3f(-.12, -.66, .74));
-  let l2 = normalize(vec3f(.72, -.12, .68));
-  let h = normalize(l + vw);
+  let ls = normalize(vec3f(-.12, -.88, .46));
+  let l2 = normalize(vec3f(.72, -.356, .592));
+  let h = normalize(ls + vw);
   let tw = normalize((u.worldFromDevice * vec4f(1., 0., 0., 0.)).xyz);
   let si = specularIntensity * 1.55;
   let ndl = max(dot(nw, l), 0.);
+  let nls = max(dot(nw, ls), 0.);
   let ndl2 = max(dot(nw, l2), 0.);
   // Unit-vector dot products can round above one; keep pow(1-ndv, 5) defined.
   let ndv = clamp(dot(nw, vw), .001, 1.);
-  let rough = clamp(.24 + material.z * .4 + (grain - .5) * .012, .26, .38);
-  let brdf = conductorBRDF(max(dot(nw, h), 0.), ndl, ndv, clamp(dot(vw, h), 0., 1.), rough);
+  let rough = clamp(.24 + material.z * .4 + (grain - .5) * .012, .26, .38) * 1.095445115;
+  let brdf = conductorBRDF(max(dot(nw, h), 0.), nls, ndv, clamp(dot(vw, h), 0., 1.), rough);
   // Scale neutral radiance before the unchanged material branches to retain color.
-  let spec = brdf * ndl * si * .12;
+  let spec = brdf * nls * si * .12;
   let fres = .18 + .82 * pow(1. - ndv, 5.);
   let inc = dot(nw, l);
   let e = env(rw, si);
@@ -289,12 +306,12 @@ fn stickerHdr(base: f32, intensity: f32) -> f32 {
     metal = e * 1.02 + color + vec3f(spec) * 1.48;
     nonSpecular = eBase * 1.02 + color;
   }
-  let sl = ndl;
+  let sl = nls;
   let surfaceF = .75 + .25 * pow(1. - ndv, 5.);
   let h2 = normalize(l2 + vw);
   let surfaceSpec = brdf * sl * .08
       + conductorBRDF(max(dot(nw, h2), 0.), ndl2, ndv, clamp(dot(vw, h2), 0., 1.), rough) * ndl2 * .025;
-  // Shared broad metal reflection, with the original lights and environment.
+  // Shared metal reflection: portrait light, 20% wider GGX; original environment.
   metal += (vec3f(surfaceSpec) + e * surfaceF * .10) * si;
   let vignette = 1. - dot(uv - vec2f(.5), uv - vec2f(.5)) * .34;
   metal *= vignette;

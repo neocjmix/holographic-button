@@ -36,7 +36,7 @@ const functionParameters={
  stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
  stickerPhase:['position','transform'],stickerMotion:['axis'],
  stickerChannel:['channel','x','y','tx','ty','width','height','base'],
- stickerGlare:['x','y','tx','ty','aspect'],stickerReflectedBase:['base','glare','intensity'],stickerSdr:['base'],
+ stickerGlare:['x','y','tx','ty','aspect'],stickerReflectedBase:['base','glare','intensity'],stickerGloss:['radiance','intensity'],stickerSdr:['base','gloss'],
 };
 const mul=(a,b)=>{const o=new Array(9).fill(0);for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++)o[r*3+c]+=a[r*3+k]*b[k*3+c];return o};
 const matrixFunction=new Function('rad','mul','alpha','beta','gamma','screenAngle',bodyOf(componentSource,'function attitudeMatrix(')).bind(null,n=>n*Math.PI/180,mul);
@@ -48,8 +48,11 @@ export const distance = (uv,aspect) => {
 export function sourceModel(shader,language) {
  const model={};
  for(const [name,parameters] of Object.entries(functionParameters))model[name]=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} ${name}(`,parameters,model);
+ model.ggx=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} ggx(`,['n','r']);
+ model.smithVisibility=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} smithVisibility(`,['nl','nv','r']);
+ model.brdf=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} conductorBRDF(`,['nh','nl','nv','vh','r'],model);
  model.rim=scalarFunction(shader,`${language==='GLSL'?'vec2':'fn'} rimProfile(`,['inward']);
- if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity'],model);
+ if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity','gloss'],model);
  model.shade=({uv,aspect=4,pose=[0,0,0],matrix=attitude(pose),intensity=1,height=148,transform,sourceBase=1}={})=>{
    const width=aspect*height;
    const tilt=transform??[model.stickerMotion(-matrix[2]),model.stickerMotion(matrix[5])];
@@ -58,17 +61,26 @@ export function sourceModel(shader,language) {
    const glare=model.stickerGlare(...uv,...tilt,aspect);
    const incoming=model.stickerReflectedBase(sourceBase,glare,intensity);
    const base=[0,1,2].map(c=>model.stickerChannel(c,...uv,...tilt,width,height,incoming));
-   const color=base.map(model.stickerSdr);
-   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity)):color;
-   const d=distance(uv,aspect),alpha=1-smoothstep(-1.5/height,1.5/height,d);
-   return {base,color,hdrColor,glare,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
+   const world=v=>[0,1,2].map(r=>matrix[r]*v[0]+matrix[3+r]*v[1]+matrix[6+r]*v[2]);
+   const eps=1e-5,dx=(distance([uv[0]+eps/aspect,uv[1]],aspect)-distance([uv[0]-eps/aspect,uv[1]],aspect))/(2*eps);
+   const dy=(distance([uv[0],uv[1]-eps],aspect)-distance([uv[0],uv[1]+eps],aspect))/(2*eps);
+   const grad=norm([dx+.00001,dy+.00001]),slope=model.rim(Math.max(-distance(uv,aspect),0))[1];
+   const n=norm(world(norm([grad[0]*slope,grad[1]*slope,1]))),v=norm(world(norm([-(uv[0]-.5)*aspect,uv[1]-.5,5])));
+   const l=norm([-.12,-.88,.46]),h=norm(l.map((x,i)=>x+v[i]));
+   const nl=Math.max(dot(n,l),0),nv=clamp(dot(n,v),.001,1),nh=Math.max(dot(n,h),0),vh=clamp(dot(v,h));
+   const brdf=model.brdf(nh,nl,nv,vh,.32);
+   const gloss=model.stickerGloss(brdf*nl*.25,intensity);
+   const color=base.map(c=>model.stickerSdr(c,gloss));
+   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity,gloss)):color;
+   const edgeDistance=distance(uv,aspect),alpha=1-smoothstep(-1.5/height,1.5/height,edgeDistance);
+   return {base,color,hdrColor,gloss,glare,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
  };
  return model;
 }
 // Independent literal upstream oracle, not extracted from our shader. Based on
 // bpisano/Sticker commit301b9e0 FoilShader.metal, ReflectionShader.metal and
 // StickerEffectParameter.swift. Double precision, no Metal half emulation.
-export function upstream({uv,transform=[0,0],width=592,height=148,sourceBase=1,intensity=1}) {
+export function upstream({uv,transform=[0,0],width=592,height=148,sourceBase=1,intensity=1,checkerScale=25}) {
  const fract=x=>x-Math.floor(x);
  const random=p=>fract(Math.sin(p[0]*12.9898+p[1]*78.233)*43758.5453);
  const noise=p=>{
@@ -80,7 +92,7 @@ export function upstream({uv,transform=[0,0],width=592,height=148,sourceBase=1,i
  const offset=transform.map((t,i)=>t*size[i]*-150);
  const q=position.map((p,i)=>p/(size[i]*3)+(offset[i]+size[i]*250)/(size[i]*3)*.01);
  const normalized=[position[0]*(width/height),position[1]];
- const checkerUV=normalized.map((p,i)=>p/size[i]*5*5);
+ const checkerUV=normalized.map((p,i)=>p/size[i]*checkerScale);
  const angle=45*Math.PI/180;
  const rotated=[Math.cos(angle)*checkerUV[0]-Math.sin(angle)*checkerUV[1],Math.sin(angle)*checkerUV[0]+Math.cos(angle)*checkerUV[1]];
  const pattern=(Math.floor(rotated[0])+Math.floor(rotated[1]))%2===0?0:1;
