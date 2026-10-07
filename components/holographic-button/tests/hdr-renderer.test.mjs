@@ -315,3 +315,15 @@ test('GLSL and WGSL finite view, phase, palette and highlight gains agree numeri
   assert.deepEqual(x,y);
  }
 });
+
+test('method4 sends CSS-point dimensions separately from DPR backing resolution, including resize',async()=>{
+ const h=harness();const {createOriginalHdrRenderer}=await load();
+ const canvas=h.makeCanvas();
+ const stop=await createOriginalHdrRenderer(canvas,options({method:4,material:[0,0,0,0]}));
+ h.frame();
+ assert.deepEqual(h.state.lastValues.slice(16,20),[240,60,0,0]);
+ assert.deepEqual(h.state.lastValues.slice(20,22),[480,120]);
+ canvas.getBoundingClientRect=()=>({width:320,height:148});
+ h.frame();assert.deepEqual(h.state.lastValues.slice(16,20),[320,148,0,0]);
+ assert.deepEqual(h.state.lastValues.slice(20,22),[640,296]);stop();
+});
