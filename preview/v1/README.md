@@ -1,21 +1,11 @@
 # v1 HDR preview
 
-Version 1.0.0-preview.5. Original four texture formulas, colors, grain/facets, CSS, motion, native button behavior and demo controls are retained.
+Version 1.0.0-preview.6 adds **Sticker Foil** as a fifth independent preset. The four prior shader paths, palette/texture formulas, light directions, motion, controls and button geometry are preserved from preview.5.
 
-Changes requested for this iteration:
-- Flat macro face and flat outermost edge, with one softly raised inset rim
-- Broad metal specular with reduced white washout; no new textures
-- Light positions and environment directions deliberately unchanged pending feedback
-- Finite-distance viewing direction varies across the flat face to recover spatial prismatic color
-- HDR presentation and numeric specular slider retained
+The new preset uses a bright two-dimensional pastel foil field, surface-fixed fine diamond contrast and independent soft glare, inspired by bpisano/Sticker. Existing presets do not receive that pattern. HDR is reserved for local glare rather than washing out the entire foil face.
 
-This is an artistic tin-like reflection treatment over the existing holographic textures, not a measured elemental-tin material. The original install commands refer to the published package, which does not contain this preview. No npm publication is authorized. Both repositories are public; package manifests have `private: true` as a publication guard.
+The preview defaults to the new option in the playground; all five appear in the material comparison. Numeric specular continues to control highlight strength. The original four public variant names/default component behavior remain compatible.
 
-The demo remains `app/page.tsx`. Reference notes and validation are in the draft PR. Tests cover texture preservation, rim continuity, renderer lifecycle and HDR output transform. Actual HDR appearance requires an HDR-capable GPU/display; the cloud browser cannot verify physical highlight output.
+References: [Sticker](https://github.com/bpisano/Sticker) (MIT, full notice included) and [Pokémon CSS live demo](https://poke-holo.simey.me/) (visual reference only; GPL code/assets not copied).
 
-## Shading references
-- [Filament specular BRDF](https://google.github.io/filament/main/filament.html): GGX distribution, height-correlated Smith visibility and Schlick Fresnel, perceptual roughness squared
-- [Three.js physical material](https://threejs.org/docs/pages/MeshPhysicalMaterial.html): separate metallic reflection from dielectric clearcoat
-- [Disney physically based shading notes](https://media.disneyanimation.com/uploads/production/publication_asset/48/asset/s2012_pbs_disney_brdf_notes_v3.pdf): roughness and clearcoat separation
-
-The existing holographic color branches remain deliberately artistic. Neutral F0=.75 and roughness near .30 are visual starting values, not measured tin constants. The compact inset ridge has zero height, slope and curvature at both ends, with its normal derived from its height slope. No extra bump texture was added.
+This is a stylized visual effect, not measured tin or a full diffraction simulation. Package manifests retain private:true and publishing guards. No npm release or main merge is authorized. Both repositories are public. The cloud browser has no GPU, so shader semantic/numerical tests are not physical HDR display validation.

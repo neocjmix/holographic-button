@@ -1,4 +1,6 @@
-> v1.0.0-preview.5: isolated HDR preview, not published to npm. Original textures and behavior are preserved. This iteration flattens the macro face and outer edge, rounds the inset ridge and broadens the tin-like reflection without moving the lights; supported HDR displays use WebGPU extended-range presentation, otherwise the original WebGL renderer remains active.
+> New in preview.6: `variant="sticker-foil"` adds a bright, spatial pastel foil preset. The four existing variants are preserved. See THIRD_PARTY_NOTICES.md for the MIT reference attribution.
+
+> v1.0.0-preview.6: isolated HDR preview, not published to npm. Original textures and behavior are preserved. This iteration flattens the macro face and outer edge, rounds the inset ridge and broadens the tin-like reflection without moving the lights; supported HDR displays use WebGPU extended-range presentation, otherwise the original WebGL renderer remains active.
 
 # @neocjmix/holographic-button
 

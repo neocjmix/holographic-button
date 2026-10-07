@@ -5,6 +5,7 @@ import {HolographicButton,type HolographicVariant,useHolographicMotion} from "@n
 
 const PACKAGE="@neocjmix/holographic-button";
 const variants:{value:HolographicVariant;label:string;note:string}[]=[
+ {value:"sticker-foil",label:"Sticker Foil",note:"Bright pastel foil · NEW"},
  {value:"spectral-film",label:"Spectral",note:"Broad rainbow sweep"},
  {value:"brushed-foil",label:"Brushed",note:"Directional metal grain"},
  {value:"thin-film",label:"Pearl",note:"Clean thin-film gradient"},
@@ -24,7 +25,7 @@ function CodeBlock({code,label}:{code:string;label:string}){
 
 export default function Home(){
  const motion=useHolographicMotion({requestOnFirstInteraction:true});
- const[variant,setVariant]=useState<HolographicVariant>("spectral-film");
+ const[variant,setVariant]=useState<HolographicVariant>("sticker-foil");
  const[label,setLabel]=useState("ACTIVATE");
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
@@ -46,10 +47,10 @@ export default function Home(){
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.5</em></a>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.6</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.5 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.6 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -57,7 +58,7 @@ export default function Home(){
     <h1>A button that<br/><i>catches the light.</i></h1>
     <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
     <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
-    <div className="hero-facts"><span>MIT LICENSE</span><span>4 MATERIALS</span><span>REACT 18+</span><span>NO HUMAN REVIEW</span></div>
+    <div className="hero-facts"><span>MIT LICENSE</span><span>5 MATERIALS</span><span>REACT 18+</span><span>NO HUMAN REVIEW</span></div>
    </div>
    <div className="hero-object">
     <p>LIVE MATERIAL <span>MOVE YOUR DEVICE</span></p>
@@ -104,7 +105,7 @@ export default function Home(){
   </section>
 
   <section className="materials section-frame" id="materials">
-   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Four optical models.</h2><p>Each variant changes how the surface is described, not just its palette.</p></div>
+   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Five optical models.</h2><p>The new Sticker Foil adds a bright spatial foil effect. The original four variants remain available unchanged.</p></div>
    <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
@@ -114,7 +115,7 @@ export default function Home(){
     <div className="api-block"><h3>HolographicButton</h3><div className="api-table" role="table">
      {[
       ["motion","HolographicMotion","required","Shared matrix from the hook."],
-      ["variant","HolographicVariant","spectral-film","One of four optical surfaces."],
+      ["variant","HolographicVariant","spectral-film","One of five optical surfaces."],
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
@@ -131,5 +132,6 @@ export default function Home(){
   </section>
 
   <footer><div><span className="brand-mark"/><b>Holographic Button</b><small>MIT © 2026 ChanJin Park</small></div><p>Inspired by <a href="https://x.com/luciascarlet/status/1930614317541474598" target="_blank" rel="noreferrer">Lucia Scarlet’s holographic controls ↗</a></p><div><a href="#top">Top ↑</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div></footer>
+ <p style={{fontSize:12,opacity:.65}}>Sticker Foil adapted from <a href="https://github.com/bpisano/Sticker">bpisano/Sticker</a> · <a href="./THIRD_PARTY_NOTICES.md">MIT notice</a></p>
  </main>;
 }
