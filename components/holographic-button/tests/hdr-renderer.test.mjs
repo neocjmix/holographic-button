@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {transform} from 'esbuild';
+import {shade, stats} from './shader-reference.mjs';
 
 const source = await readFile(new URL('../hdr-renderer.ts', import.meta.url), 'utf8');
 const componentSource = await readFile(new URL('../index.tsx', import.meta.url), 'utf8');
@@ -100,7 +101,7 @@ test('shader preserves silhouette, material branches, lighting directions and co
  assert.ok(s.includes('grainDy = -dpdy(grain)'));assert.ok(s.includes('vec2f(dpdx(filmNoise), -dpdy(filmNoise))'));
  assert.ok(s.indexOf('let filmGradient')<s.indexOf('discard;'));assert.ok(s.includes('encoded * alpha, alpha'));
  assert.ok(s.includes('clamp(dot(nw, vw), .001, 1.)'));
- assert.ok(s.includes('vec4f(0., 0., 1., 0.)'));assert.ok(glsl.includes('worldFromDevice*vec3(0,0,1)'));
+ assert.ok(s.includes('vec4f(viewDirection(p), 0.)'));assert.ok(glsl.includes('worldFromDevice*viewDirection(p)'));
  for(const threshold of ['method < .5','method < 1.5','method < 2.5']) assert.ok(s.includes(threshold));
  // All environment colors, angular widths and directions remain unchanged.
  assert.equal(hash(functionBody(wgsl,'fn env(')),'1eb48d33ba83842e098117ec04366e7a0ccea24469c3c5e90ccaae132af73dfb');
@@ -228,4 +229,89 @@ test('bottom-up UV plus signed derivatives recovers original upward rim gradient
  const dyGl=distance(glUv[0],glUv[1]+step)-distance(glUv[0],glUv[1]);
  const dyGpu=distance(gpuUv[0],gpuUv[1])-distance(gpuUv[0],gpuUv[1]+step);
  assert.ok(Math.abs(-dyGpu-dyGl)<1e-12);
+});
+
+// Evaluate source expressions rather than only asserting their spelling. These
+// helpers use the shader's view/phase/spectrum/BRDF and current neutral gains.
+// RGB arithmetic outside those functions is an independent central-face CPU
+// reference. This does not claim GPU or physical-display validation.
+const dot=(a,b)=>a.reduce((sum,value,i)=>sum+value*b[i],0);
+const fract=x=>x-Math.floor(x);
+const hashPoint=p=>fract(Math.sin(dot(p,[127.1,311.7]))*43758.5453);
+function expression(shader,pattern,parameters,bindings={}) {
+ const match=shader.match(pattern);assert.ok(match,pattern);
+ const expr=match[1].replace(/\bvec3f\(/g,'vec3(');
+ const bound={normalize,dot,vec3:(...values)=>values,hash:hashPoint,...bindings};
+ return new Function(...Object.keys(bound),...parameters,`return ${expr};`).bind(null,...Object.values(bound));
+}
+const opticalModels=[['GLSL',glsl],['WGSL',wgsl]].map(([language,shader],i)=>{
+ const view=expression(shader,language==='GLSL'?/vec3 viewDirection\([^}]*return ([^;]+);/:/fn viewDirection\([^}]*return ([^;]+);/,['p']);
+ const sweep=expression(shader,/(?:float|let) sweep\s*=\s*([^;]+);/,['rw']);
+ const band=expression(shader,/(?:float|let) band\s*=\s*([^;]+);/,['rw','cell']);
+ const spectrumBody=functionBody(shader,language==='GLSL'?'vec3 spectrum(':'fn spectrum(').replace(/\bvec3f\(/g,'vec3(');
+ const spectrumFunction=new Function('pow','cos','vec3','t',spectrumBody);
+ const spectrum=t=>[0,1,2].map(channel=>spectrumFunction(Math.pow,Math.cos,(...v)=>v.length===1?v[0]:v[channel],t));
+ const gains={
+   gain:expression(shader,/(?:spec|let spec)\s*=\s*([^;},]+)(?:[,;])/,['brdf','ndl','si'])(1,1,1),
+   primary:Number(shader.match(/(?:surfaceSpec|let surfaceSpec)\s*=\s*brdf\s*\*\s*sl\s*\*\s*([.\d]+)/)[1]),
+   secondary:Number(shader.match(/rough\)\s*\*\s*ndl2\s*\*\s*([.\d]+);/)[1]),
+ };
+ return [language,{...gains,math:{view,sweep,band,spectrum,brdf:shaderModels[i][1].brdf}}];
+});
+for(const [language,model] of opticalModels) {
+ test(`${language} finite-position viewer stays above a genuinely flat macro face`,()=>{
+  assert.deepEqual(model.math.view({x:0,y:0}).map(x=>x+0),[0,0,1]);
+  for(const aspect of [2,3,4,6])for(const y of [-.25,0,.25])for(const x of [-.38*aspect,0,.38*aspect]) {
+   const v=model.math.view({x,y});assert.ok(Math.abs(Math.hypot(...v)-1)<1e-14);
+   assert.ok(v[2]>0);assert.ok(Math.abs(v[0]/v[2]+x/5)<1e-14);assert.ok(Math.abs(v[1]/v[2]+y/5)<1e-14);
+   const sample=shade({...model,uv:[x/aspect+.5,y+.5],aspect});assert.deepEqual(sample.normal,[0,0,1]);
+  }
+  assert.ok(model.math.view({x:-1,y:0})[0]>0);assert.ok(model.math.view({x:1,y:0})[0]<0);
+ });
+ test(`${language} flat Spectral and Prism show spatial color change at multiple widths and poses`,()=>{
+  for(const aspect of [2,3,4,6])for(const pose of [[0,0],[18,-15],[-18,15]]) {
+   const spectral=stats({...model,aspect,pose,method:0});
+   assert.ok(spectral.phaseSpan>.09,JSON.stringify({aspect,pose,spectral}));
+   assert.ok(spectral.colorRange>.13);assert.ok(spectral.chromaMean>.32);
+   const prism=stats({...model,aspect,pose,method:3});
+   assert.ok(prism.phaseSpan>.55);assert.ok(prism.colorRange>.38);assert.ok(prism.chromaMean>.30);
+  }
+  // A regression to parallel rays has zero phase span even though the unchanged
+  // material palettes still exist in the source. This catches the preview.4 bug.
+  const parallel=stats({...model,math:{...model.math,view:()=>[0,0,1]},method:0});
+  assert.equal(parallel.phaseSpan,0);assert.ok(parallel.colorRange<.025);
+ });
+ test(`${language} neutral highlight is localized and retains surrounding rainbow at intensity one`,()=>{
+  const pose=[42,-9];
+  for(const method of [0,3]) {
+   const tuned=stats({...model,pose,method}),unscaled=stats({...model,pose,method,gain:1,primary:.35,secondary:.08});
+   assert.ok(tuned.chromaMean>unscaled.chromaMean*4);
+   assert.ok(tuned.whiteFraction<.55);assert.ok(unscaled.whiteFraction>.85);
+   assert.ok(tuned.highlightMax>1&&tuned.highlightMax<5);
+   assert.ok(tuned.highlightMax<unscaled.highlightMax*.2);
+   assert.ok(tuned.hdrRelativeChromaMean>.30);
+   assert.ok(tuned.hdrRelativeChromaMean>unscaled.hdrRelativeChromaMean*3);
+   assert.ok(tuned.hdrExcessFraction<.60);assert.ok(unscaled.hdrExcessFraction>.90);
+   assert.ok(tuned.hdrPeak>1&&tuned.hdrPeak<1.5);
+  }
+ });
+ test(`${language} all four central-face references remain finite from specular zero through three`,()=>{
+  for(const method of [0,1,2,3])for(const intensity of [0,1,3])for(const pose of [[0,0],[18,-15],[42,-9]])for(const u of [.12,.3,.5,.7,.88]) {
+   const sample=shade({...model,method,intensity,pose,uv:[u,.5]});
+   assert.ok(sample.color.every(x=>Number.isFinite(x)&&x>=0&&x<1));
+   assert.ok(sample.hdrColor.every(x=>Number.isFinite(x)&&x>=0&&x<1.83));
+   if(intensity===0)assert.deepEqual(sample.hdrColor,sample.color);
+  }
+  // Pearl's incidence/noise-based formula intentionally retains subtle variation.
+  const pearl=stats({...model,method:2}),spectral=stats({...model,method:0});
+  assert.ok(pearl.colorRange>.01&&pearl.colorRange<.08);assert.ok(spectral.colorRange>pearl.colorRange*10);
+ });
+}
+test('GLSL and WGSL finite view, phase, palette and highlight gains agree numerically',()=>{
+ const a=opticalModels[0][1],b=opticalModels[1][1];
+ assert.deepEqual([a.gain,a.primary,a.secondary],[b.gain,b.primary,b.secondary]);
+ for(const pose of [[0,0],[18,-15],[-18,15],[42,-9]])for(const aspect of [2,4,6])for(const method of [0,1,2,3])for(const u of [.12,.3,.5,.7,.88]) {
+  const params={pose,aspect,method,uv:[u,.5]},x=shade({...a,...params}),y=shade({...b,...params});
+  assert.deepEqual(x,y);
+ }
 });

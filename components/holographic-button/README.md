@@ -1,4 +1,4 @@
-> v1.0.0-preview.4: isolated HDR preview, not published to npm. Original textures and behavior are preserved. This iteration flattens the macro face and outer edge, rounds the inset ridge and broadens the tin-like reflection without moving the lights; supported HDR displays use WebGPU extended-range presentation, otherwise the original WebGL renderer remains active.
+> v1.0.0-preview.5: isolated HDR preview, not published to npm. Original textures and behavior are preserved. This iteration flattens the macro face and outer edge, rounds the inset ridge and broadens the tin-like reflection without moving the lights; supported HDR displays use WebGPU extended-range presentation, otherwise the original WebGL renderer remains active.
 
 # @neocjmix/holographic-button
 

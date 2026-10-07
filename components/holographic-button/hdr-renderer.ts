@@ -81,6 +81,13 @@ fn rimProfile(inward: f32) -> vec2f {
   return vec2f(64. * .0012 * t * t * t * q * q * q,
                (192. * .0012 / .06) * t * t * q * q * (1. - 2. * t));
 }
+// Virtual viewer at (0,0,5) in device coordinates, five face-height units away.
+// This artistic optical perspective restores a reflected color sweep on a flat
+// face without changing its normal. At 4:1 aspect the full horizontal FOV is 44deg.
+// The view and normal rotate together into the unchanged world-space light rig.
+fn viewDirection(p: vec2f) -> vec3f {
+  return normalize(vec3f(-p.x, -p.y, 5.));
+}
 // GGX with height-correlated Smith visibility and neutral conductor Schlick F.
 // F0=.75 and roughness are artistic tin-like approximations, not measured tin.
 // https://google.github.io/filament/main/filament.html#materialsystem/specularbrdf
@@ -152,7 +159,7 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   // inward=-d, so -grad(height)=gd * dh/d(inward). Preserve texture micro-bump.
   let n = normalize(vec3f(gd * rim.y + micro, 1.));
   let nw = normalize((u.worldFromDevice * vec4f(n, 0.)).xyz);
-  let vw = normalize((u.worldFromDevice * vec4f(0., 0., 1., 0.)).xyz);
+  let vw = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
   let rw = normalize(reflect(-vw, nw));
   let l = normalize(vec3f(-.12, -.66, .74));
   let l2 = normalize(vec3f(.72, -.12, .68));
@@ -165,7 +172,8 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   let ndv = clamp(dot(nw, vw), .001, 1.);
   let rough = clamp(.24 + material.z * .4 + (grain - .5) * .012, .26, .38);
   let brdf = conductorBRDF(max(dot(nw, h), 0.), ndl, ndv, clamp(dot(vw, h), 0., 1.), rough);
-  let spec = brdf * ndl * si;
+  // Scale neutral radiance before the unchanged material branches to retain color.
+  let spec = brdf * ndl * si * .12;
   let fres = .18 + .82 * pow(1. - ndv, 5.);
   let inc = dot(nw, l);
   let e = env(rw, si);
@@ -200,8 +208,8 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
   let sl = ndl;
   let surfaceF = .75 + .25 * pow(1. - ndv, 5.);
   let h2 = normalize(l2 + vw);
-  let surfaceSpec = brdf * sl * .35
-      + conductorBRDF(max(dot(nw, h2), 0.), ndl2, ndv, clamp(dot(vw, h2), 0., 1.), rough) * ndl2 * .08;
+  let surfaceSpec = brdf * sl * .08
+      + conductorBRDF(max(dot(nw, h2), 0.), ndl2, ndv, clamp(dot(vw, h2), 0., 1.), rough) * ndl2 * .025;
   // Shared broad metal reflection, with the original lights and environment.
   metal += (vec3f(surfaceSpec) + e * surfaceF * .10) * si;
   let vignette = 1. - dot(uv - vec2f(.5), uv - vec2f(.5)) * .34;

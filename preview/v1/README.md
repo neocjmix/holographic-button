@@ -1,11 +1,12 @@
 # v1 HDR preview
 
-Version 1.0.0-preview.4. Original four texture formulas, colors, grain/facets, CSS, motion, native button behavior and demo controls are retained.
+Version 1.0.0-preview.5. Original four texture formulas, colors, grain/facets, CSS, motion, native button behavior and demo controls are retained.
 
 Changes requested for this iteration:
 - Flat macro face and flat outermost edge, with one softly raised inset rim
-- Broader, neutral tin-like specular reflection; no new textures
+- Broad metal specular with reduced white washout; no new textures
 - Light positions and environment directions deliberately unchanged pending feedback
+- Finite-distance viewing direction varies across the flat face to recover spatial prismatic color
 - HDR presentation and numeric specular slider retained
 
 This is an artistic tin-like reflection treatment over the existing holographic textures, not a measured elemental-tin material. The original install commands refer to the published package, which does not contain this preview. No npm publication is authorized. Both repositories are public; package manifests have `private: true` as a publication guard.
