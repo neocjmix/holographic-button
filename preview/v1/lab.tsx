@@ -1,27 +1,6 @@
-import React,{useEffect,useRef,useState} from 'react';
-import{createRoot}from'react-dom/client';
-import{HolographicButton,useHolographicMotion}from'../../components/holographic-button/index';
-import '../../components/holographic-button/holographic-button.css';
-import './style.css';
-import{createRenderer}from'./renderer.js';
-const identity=new Float32Array([1,0,0,0,1,0,0,0,1]);
-const presets=[['01','Dichroic lens','검은 금속 · 얇은 광학 코팅'],['02','Machined titanium','방향성 결 · 절제된 회절'],['03','Opal glaze','유백색 · 부드러운 간섭광'],['04','Spectral chrome','깊은 색 · 날카로운 반사']];
-function Surface({kind,hdr,matrix,peak,probe=false}:{kind:number;hdr:boolean;matrix:any;peak:number;probe?:boolean}){
- const ref=useRef<HTMLCanvasElement>(null),pressed=useRef(0),current=useRef({matrix,peak});current.current={matrix,peak};const[status,setStatus]=useState('준비 중'),[error,setError]=useState('');
- useEffect(()=>{let cancelled=false,cleanup:any;setError('');setStatus('준비 중');createRenderer(ref.current,{kind,hdr,matrix:()=>current.current.matrix.current,peak:()=>current.current.peak,pressed:()=>pressed.current,error:(message:string)=>{setError(message);setStatus('정적 대체 표시')}}).then(fn=>{if(cancelled)fn();else{cleanup=fn;setStatus(hdr?'HDR 경로 설정됨':'SDR 경로 설정됨');}}).catch(e=>{if(!cancelled){setError(String(e.message));setStatus('정적 대체 표시');}});return()=>{cancelled=true;cleanup?.();};},[kind,hdr]);
- return <div className="surface"><button className={'sample '+(probe?'probe':'')+(error?' fallback':'')} type="button" aria-label={probe?(hdr?'HDR 밝기 표':'SDR 밝기 표'):`${presets[kind][1]} ${hdr?'HDR':'SDR'} 버튼`} onPointerDown={()=>pressed.current=1} onPointerUp={()=>pressed.current=0} onPointerLeave={()=>pressed.current=0} onPointerCancel={()=>pressed.current=0} onKeyDown={e=>{if(e.key===' '||e.key==='Enter')pressed.current=1}} onKeyUp={()=>pressed.current=0} onBlur={()=>pressed.current=0}>
- <canvas ref={ref}/>{!probe&&<span className={'label label-'+kind}>TOUCH LIGHT</span>}{error&&<span className="fallback-tag">STATIC · HDR 미확인</span>}</button><small>{status}</small>{error&&<small className="error">{error}</small>}</div>
-}
-function App(){
- const[permission,setPermission]=useState('요청 전'); const requestMotion=async()=>{setEnabled(true);const O=window.DeviceOrientationEvent as any;try{setPermission(O?.requestPermission?await O.requestPermission():'지원 여부 확인 중');}catch{setPermission('denied');}};
- const motion=useHolographicMotion({pointerFallback:true,requestOnFirstInteraction:false,telemetry:true});const[enabled,setEnabled]=useState(false),[freeze,setFreeze]=useState(false),[peak,setPeak]=useState(.8),[reduced,setReduced]=useState(false),[high,setHigh]=useState(false);const matrix=useRef<Float32Array>(identity),neutral=useRef<Float32Array|null>(null),last=useRef<Float32Array>(identity);
- useEffect(()=>{const mq=matchMedia('(prefers-reduced-motion: reduce)'),hdr=matchMedia('(dynamic-range: high)');const change=()=>{setReduced(mq.matches);setHigh(hdr.matches)};change();mq.addEventListener('change',change);hdr.addEventListener('change',change);return()=>{mq.removeEventListener('change',change);hdr.removeEventListener('change',change)}},[]);
- useEffect(()=>{let raf=0;const frame=()=>{if(!freeze&&!reduced){const m=enabled?motion.matrix.current:identity;const n=neutral.current;if(n&&enabled){const out=new Float32Array(9);for(let c=0;c<3;c++)for(let r=0;r<3;r++)for(let k=0;k<3;k++)out[c*3+r]+=n[r*3+k]*m[c*3+k];matrix.current=out;}else matrix.current=m;last.current=matrix.current;}else matrix.current=last.current;raf=requestAnimationFrame(frame)};raf=requestAnimationFrame(frame);return()=>cancelAnimationFrame(raf)},[enabled,freeze,reduced,motion.matrix]);
- return <main><header><div className="eyebrow">MATERIAL STUDIES / 1.0.0-preview.2</div><h1>Light you can almost touch.</h1><p>하나의 빛, 네 가지 표면. 같은 기울기에서 HDR과 SDR을 함께 비교하세요.</p><div className="notice">실험용 v1 · npm 미출판 · 화면의 표시 상태는 실제 HDR 밝기를 보증하지 않습니다</div></header>
- <section className="controls"><button onClick={requestMotion}>기울기 / 포인터 켜기</button><button onClick={()=>{neutral.current=new Float32Array(motion.matrix.current);setEnabled(true)}}>지금 각도 기준 잡기</button><button onClick={()=>setFreeze(!freeze)}>{freeze?'움직임 재개':'움직임 고정'}</button><label>반사광 <input aria-label="반사광 세기" type="range" min="0" max="1.5" step=".05" value={peak} onChange={e=>setPeak(+e.target.value)}/></label><small>센서: {permission} / {motion.telemetry.permission} / {motion.telemetry.source} · HDR 디스플레이 신호: {high?'high':'standard'}{reduced?' · 동작 줄이기 적용':''}</small></section>
- <section className="diagnostic"><h2>먼저 빛의 차이부터</h2><p>아래 HDR의 1.5×·2×·4×가 CSS 흰색보다 밝은지 보세요. 같다면 현재 화면에서 HDR이 활성화됐다고 판단하지 마세요.</p><div className="white-reference">CSS WHITE · 1×</div><div className="comparison"><div><b>HDR / extended</b><Surface kind={10} hdr matrix={matrix} peak={peak} probe/></div><div><b>SDR / standard</b><Surface kind={10} hdr={false} matrix={matrix} peak={peak} probe/></div></div><div className="ticks">1×　　 1.5×　　 2×　　 4×</div></section>
- <section className="grid">{presets.map(([id,name,desc],i)=><article key={id}><div className="card-title"><span>{id}</span><h2>{name}</h2></div><p>{desc}</p><div className="comparison"><div><b>HDR</b><Surface kind={i} hdr matrix={matrix} peak={peak}/></div><div><b>SDR</b><Surface kind={i} hdr={false} matrix={matrix} peak={peak}/></div></div></article>)}</section>
- <section className="legacy"><h2>기존 v0.1.2 · WebGL 참고</h2><HolographicButton motion={{matrix}} variant="spectral-film" width="100%" height={112}>LEGACY MATERIAL</HolographicButton><p>기존 광학 모델 참고용입니다. 위 SDR 열과는 서로 다른 셰이더입니다.</p></section>
- <footer><h2>피드백은 이것만</h2><p>① HDR 표가 실제로 더 밝았는지 ② 가장 진짜 같은 프리셋 번호 ③ 반사광이 과한지 ④ 기울임·누름이 자연스러운지</p><p>iPhone 모델 · iOS 버전 · Safari · 밝기 설정을 함께 알려주세요. 스크린샷만으로 HDR을 판정하지 않습니다.</p><a href="https://neocjmix.github.io/holographic-button/">기존 공개 데모 ↗</a></footer></main>
-}
-createRoot(document.getElementById('root')!).render(<App/>);
+import {StrictMode} from "react";
+import {createRoot} from "react-dom/client";
+import Home from "../../app/page";
+import "../../components/holographic-button/holographic-button.css";
+import "../../app/globals.css";
+createRoot(document.getElementById("root")!).render(<StrictMode><Home/></StrictMode>);

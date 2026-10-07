@@ -1,3 +1,5 @@
+> v1.0.0-preview.3: isolated HDR preview, not published to npm. Original materials and behavior are preserved; supported HDR displays use WebGPU extended-range presentation, otherwise the original WebGL renderer remains active.
+
 # @neocjmix/holographic-button
 
 A physically directed holographic WebGL button for React. Its reflective surface responds to device attitude on mobile and pointer movement on desktop while the lights remain fixed in world space.
@@ -44,7 +46,7 @@ export function CTA() {
       variant="spectral-film"
       width="min(100%, 560px)"
       height={148}
-      specular={true}
+      specular={1}
       onClick={() => alert("Activated")}
     >
       ACTIVATE
@@ -78,11 +80,11 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `children` | `ReactNode` | `ACTIVATE` | Main button content. |
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
-| `specular` | `boolean` | `true` | Enables the fixed, tuned surface highlight. |
+| `specular` | `number \| boolean` | `1` | Highlight strength: 0 off, 1 original, above 1 stronger. |
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission. Plain text inherits the default black label treatment; `children` remains a `ReactNode`, so styled JSX, icons, and custom label structures can provide their own colors.
 
-The specular preset is part of the material design rather than a public collection of tuning knobs. Set `specular={false}` to remove its direct environment-light lobes and rim glints while retaining the holographic base material. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat. The boolean is uploaded on the existing animation loop, so toggling it does not recreate the WebGL program.
+The specular preset is part of the material design rather than a public collection of tuning knobs. Set `specular={false}` to remove its direct environment-light lobes and rim glints while retaining the holographic base material. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and rim bump; it is not rendered as a separate top coat. The numeric strength is uploaded on the existing animation loop, so moving the slider does not recreate the renderer. Boolean true/false remain compatible with 1/0. Negative strengths clamp to zero; non-finite values use 1.
 
 The internal preset is informed by common PBR material concepts but uses a compact custom WebGL 1 approximation rather than claiming glTF conformance.
 

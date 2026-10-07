@@ -28,7 +28,7 @@ export default function Home(){
  const[label,setLabel]=useState("ACTIVATE");
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
- const[specular,setSpecular]=useState(true);
+ const[specular,setSpecular]=useState(1);
  const[disabled,setDisabled]=useState(false);
  const[manager,setManager]=useState<keyof typeof installCommands>("npm");
  const[activated,setActivated]=useState(0);
@@ -46,14 +46,14 @@ export default function Home(){
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v0.1.2</em></a>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.3</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. Treat v0.1.2 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.3 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
-    <p className="kicker"><span>REACT / WEBGL</span> WORLD-LIT INTERFACE MATERIAL</p>
+    <p className="kicker"><span>REACT / HDR + WEBGL</span> WORLD-LIT INTERFACE MATERIAL</p>
     <h1>A button that<br/><i>catches the light.</i></h1>
     <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
     <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
@@ -77,9 +77,7 @@ export default function Home(){
      </div>
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
      <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
-     <div className="control-group specular-toggle-group"><span className="control-label">Surface specular</span>
-      <label className="toggle-field"><span>Enabled</span><button type="button" role="switch" aria-label="Toggle surface specular" aria-checked={specular} className={specular?"on":""} onClick={()=>setSpecular(v=>!v)}><i/></button></label>
-     </div>
+     <label className="range-field"><span>Surface specular <b>{specular.toFixed(2)}×</b></span><input aria-label="Surface specular intensity" type="range" min="0" max="3" step="0.05" value={specular} onChange={e=>setSpecular(Number(e.target.value))}/></label>
     </div>
     <div className="live-stage">
      <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>
@@ -120,7 +118,7 @@ export default function Home(){
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
-      ["specular","boolean","true","Enables the fixed, tuned surface highlight."],
+      ["specular","number | boolean","1","Highlight strength: 0 = off, 1 = original, above 1 = stronger. Boolean values remain supported."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}
     </div><div className="native-strip"><b>Also forwards</b><span>on*</span><span>disabled</span><span>type / name / value / form</span><span>aria-* / data-*</span><span>className / style / ref</span></div></div>
     <div className="api-block"><h3>useHolographicMotion</h3><div className="hook-card"><code>const motion = useHolographicMotion(&#123;<br/>  pointerFallback: true,<br/>  requestOnFirstInteraction: true,<br/>  telemetry: false<br/>&#125;);</code><p>Use one instance per group. Reactive <code>telemetry</code> is opt-in, so the default path does not re-render the tree for diagnostics. The library renders no HUD.</p></div>
