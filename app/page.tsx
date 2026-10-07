@@ -105,7 +105,7 @@ export default function Home(){
   </section>
 
   <section className="materials section-frame" id="materials">
-   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Five optical models.</h2><p>The new Sticker Foil adds a bright spatial foil effect. The original four variants remain available unchanged.</p></div>
+   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Five optical models.</h2><p>All five variants share the refined lighting and rim. Their distinct color textures are retained, with a larger pattern on Sticker Foil.</p></div>
    <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
