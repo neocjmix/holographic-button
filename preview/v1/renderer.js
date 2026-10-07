@@ -15,7 +15,7 @@ fn film(x:f32)->vec3f {return .5+.5*cos(vec3f(0.,2.1,4.2)+x);}
  let edge=exp(-pow(abs((sd+.025)/.045),2.));
  let nLocal=normalize(vec3f(q.x*.6+sign(p.x)*edge*.55,p.y*.8+sign(p.y)*edge*.55,1.));
  let n=normalize((u.rotation*vec4f(nLocal,0.)).xyz);let view=normalize((u.rotation*vec4f(0.,0.,1.,0.)).xyz);
- let light=normalize(vec3f(-.32,-.42,1.));let halfV=normalize(view+light);let ndh=max(dot(n,halfV),0.);let ndv=max(dot(n,view),0.);
+ let light=normalize(vec3f(-.32,-.42,1.));let halfV=normalize(view+light);let ndh=clamp(dot(n,halfV),0.,1.);let ndv=clamp(dot(n,view),0.,1.);
  let refl=reflect(-view,n);let stripe=exp(-pow(abs((refl.x+.26)/(.09+press*.025)),2.)-pow(abs((refl.y+.35)/.48),4.));let glint=pow(ndh,180.-press*45.);
  let grain=sin(p.x*240.+p.y*19.)*.5+.5;var base=vec3f(.035,.045,.055);var rough:f32=.16;var tint=film(dot(n,light)*13.+p.x*.35);
  if(kind<.5){base+=tint*.09*(.3+stripe);}else if(kind<1.5){base=vec3f(.18,.20,.23)*(.94+.06*grain);tint=film(p.x*9.+dot(n,light)*17.);rough=.32;}else if(kind<2.5){base=vec3f(.48,.45,.52)+film(ndv*7.)*.12;rough=.45;tint=mix(vec3f(1.),film(ndv*12.),.3);}else{base=vec3f(.07,.1,.12)+film(dot(n,light)*19.+p.x*3.)*.23;rough=.12;}
