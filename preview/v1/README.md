@@ -1,6 +1,6 @@
 # v1 HDR material preview
 
-Unpublished `1.0.0-preview.1`. Existing root demo and WebGL implementation remain unchanged. This branch's workspace is private and prepublishOnly fails deliberately. Never tag or run the release workflow.
+Unpublished `1.0.0-preview.2`. Existing root demo and WebGL implementation remain unchanged. This branch's workspace is private and prepublishOnly fails deliberately. Never tag or run the release workflow.
 
 Build: `npm ci --ignore-scripts && npm run build:preview`.
 Serve `preview-dist` over HTTPS or localhost, open `/v1/`.

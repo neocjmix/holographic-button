@@ -10,11 +10,25 @@ fn film(x:f32)->vec3f {return .5+.5*cos(vec3f(0.,2.1,4.2)+x);}
  let kind=u.params.x;let hdr=u.params.y;let peak=u.params.z;let press=u.params.w;
  let uv=pixel.xy/u.size.xy;let aspect=u.size.x/u.size.y;
  if(kind>9.) {let idx=min(u32(uv.x*4.),3u);let levels=array<f32,4>(1.,1.5,2.,4.);var v=levels[idx];if(hdr<.5){v=min(v,1.);}return vec4f(encode(vec3f(v)),1.);}
- let p=(uv-.5)*vec2f(aspect,1.);let q=vec2f(max(abs(p.x)-(aspect*.5-.48),0.),p.y);
- let sd=length(q)-.34;let aa=max(fwidth(sd),.001);let body=1.-smoothstep(-aa,aa,sd);
- let edge=exp(-pow(abs((sd+.025)/.045),2.));
- let nLocal=normalize(vec3f(q.x*.6+sign(p.x)*edge*.55,p.y*.8+sign(p.y)*edge*.55,1.));
- let n=normalize((u.rotation*vec4f(nLocal,0.)).xyz);let view=normalize((u.rotation*vec4f(0.,0.,1.,0.)).xyz);
+ // Signed capsule geometry: only the distance folds x, never the normal.
+ let p=(uv-.5)*vec2f(aspect,1.);
+ let halfSpan=max(aspect*.5-.48,0.);
+ let q=vec2f(max(abs(p.x)-halfSpan,0.),p.y);
+ let qlen=max(length(q),.00001);
+ let sd=qlen-.34;let aa=max(fwidth(sd),.001);
+ let body=1.-smoothstep(-aa,aa,sd);
+ let gradient=vec2f(sign(p.x)*q.x,p.y)/qlen;
+ // A flat face with a narrow continuous inset/raised reflective rim.
+ let inward=max(-sd,0.);
+ let rimMask=1.-smoothstep(.055,.085,inward);
+ let rimPhase=clamp(inward/.08,0.,1.)*6.2831853;
+ let slope=-cos(rimPhase)*rimMask*.46;
+ let edge=rimMask;
+ let nLocal=normalize(vec3f(gradient*slope,1.));
+ let n=normalize((u.rotation*vec4f(nLocal,0.)).xyz);
+ // Slight perspective changes the view, not the flat surface normal.
+ let viewLocal=normalize(vec3f(-p.x*.13,-p.y*.13,1.));
+ let view=normalize((u.rotation*vec4f(viewLocal,0.)).xyz);
  let light=normalize(vec3f(-.32,-.42,1.));let halfV=normalize(view+light);let ndh=clamp(dot(n,halfV),0.,1.);let ndv=clamp(dot(n,view),0.,1.);
  let refl=reflect(-view,n);let stripe=exp(-pow(abs((refl.x+.26)/(.09+press*.025)),2.)-pow(abs((refl.y+.35)/.48),4.));let glint=pow(ndh,180.-press*45.);
  let grain=sin(p.x*240.+p.y*19.)*.5+.5;var base=vec3f(.035,.045,.055);var rough:f32=.16;var tint=film(dot(n,light)*13.+p.x*.35);
