@@ -36,7 +36,7 @@ const functionParameters={
  stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
  stickerPhase:['position','transform'],stickerMotion:['axis'],
  stickerChannel:['channel','x','y','tx','ty','width','height','base'],
- stickerGlare:['x','y','tx','ty','aspect'],stickerReflectedBase:['base','glare','intensity'],stickerSoftbox:['horizontal','vertical','forward'],stickerReflection:['horizontal','vertical','forward','x','y','aspect'],stickerDecode:['c'],stickerEncode:['c'],stickerLinear:['base','highlight','silver','headroom'],stickerHighlight:['coverage','intensity'],stickerSilver:['x','y','aspect'],stickerSdr:['base','highlight','silver'],
+ stickerSoftbox:['horizontal','vertical','forward'],stickerReflection:['horizontal','vertical','forward','x','y','aspect'],stickerDecode:['c'],stickerEncode:['c'],stickerLinear:['base','highlight','substrate','headroom'],stickerHighlight:['coverage','intensity'],stickerSubstrate:['x','y','aspect'],stickerSdr:['base','highlight','substrate','peak'],
 };
 const mul=(a,b)=>{const o=new Array(9).fill(0);for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++)o[r*3+c]+=a[r*3+k]*b[k*3+c];return o};
 const matrixFunction=new Function('rad','mul','alpha','beta','gamma','screenAngle',bodyOf(componentSource,'function attitudeMatrix(')).bind(null,n=>n*Math.PI/180,mul);
@@ -48,6 +48,7 @@ export const distance = (uv,aspect) => {
 export function sourceModel(shader,language) {
  const model={};
  const basis=[...shader.matchAll(/dot\(sr,\s*vec3f?\(([^)]+)\)\)/g)].map(m=>m[1].split(",").map(Number));
+ basis.splice(0,basis.length-3);
  assert.equal(basis.length,3);
  model.basis=basis;
  for(const [name,parameters] of Object.entries(functionParameters))model[name]=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} ${name}(`,parameters,model);
@@ -55,27 +56,30 @@ export function sourceModel(shader,language) {
  model.smithVisibility=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} smithVisibility(`,['nl','nv','r']);
  model.brdf=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} conductorBRDF(`,['nh','nl','nv','vh','r'],model);
  model.rim=scalarFunction(shader,`${language==='GLSL'?'vec2':'fn'} rimProfile(`,['inward']);
- if(language==='WGSL'){model.stickerSource=scalarFunction(shader,'fn stickerSource(',['base','intensity'],model);model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity','highlight','silver','sourceLuma'],model);}
- model.shade=({uv,aspect=4,pose=[0,0,0],matrix=attitude(pose),intensity=1,height=148,transform,sourceBase=1}={})=>{
+ if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity','highlight','substrate'],model);
+ model.shade=({uv,aspect=4,pose=[0,0,0],matrix=attitude(pose),intensity=1,height=148,transform,sourceBase=1,viewOffset=[0,0],lightBasis=basis}={})=>{
    const width=aspect*height;
    const tilt=transform??[model.stickerMotion(-matrix[2]),model.stickerMotion(matrix[5])];
    // Public analytical UV is top-left, matching SwiftUI. Both fragment paths
    // explicitly invert their legacy bottom-left Y before these scalar calls.
-   const glare=model.stickerGlare(...uv,...tilt,aspect);
-   const incoming=model.stickerReflectedBase(sourceBase,glare,intensity);
-   const base=[0,1,2].map(c=>model.stickerChannel(c,...uv,...tilt,width,height,incoming));
+   const glare=1-smoothstep(0,Math.min(aspect,1)/(2*aspect),Math.hypot(uv[0]-.5-tilt[0],uv[1]-.5-tilt[1]));
+   const incoming=mix(sourceBase,1,clamp(.3*Math.max(intensity,0)*glare));
+   const rawBase=[0,1,2].map(c=>model.stickerChannel(c,...uv,...tilt,width,height,incoming));
    const world=v=>[0,1,2].map(r=>matrix[r]*v[0]+matrix[3+r]*v[1]+matrix[6+r]*v[2]);
    const eps=1e-5,dx=(distance([uv[0]+eps/aspect,uv[1]],aspect)-distance([uv[0]-eps/aspect,uv[1]],aspect))/(2*eps);
    const dy=(distance([uv[0],uv[1]-eps],aspect)-distance([uv[0],uv[1]+eps],aspect))/(2*eps);
    const grad=norm([dx+.00001,dy+.00001]),slope=model.rim(Math.max(-distance(uv,aspect),0))[1];
-   const n=norm(world(norm([grad[0]*slope,grad[1]*slope,1]))),v=norm(world(norm([-(uv[0]-.5)*aspect,uv[1]-.5,5])));
+   const n=norm(world(norm([grad[0]*slope,grad[1]*slope,1]))),v=norm(world(norm([-(uv[0]-.5)*aspect+viewOffset[0],uv[1]-.5+viewOffset[1],5])));
    const reflected=n.map((x,i)=>2*dot(n,v)*x-v[i]);
-   const coverage=model.stickerReflection(...basis.map(axis=>dot(reflected,axis)),...uv,aspect);
-   const highlight=model.stickerHighlight(coverage,intensity),silver=model.stickerSilver(...uv,aspect);
-   const color=base.map(c=>model.stickerSdr(c,highlight,silver));
-   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity,highlight,silver,luminance(base.map(v=>decode(model.stickerSource(v,intensity)))))):color;
+   const opticalFrame=lightBasis.map(axis=>dot(reflected,axis));
+   const opticalTilt=opticalFrame.slice(0,2).map(model.stickerMotion);
+   const base=[0,1,2].map(c=>model.stickerChannel(c,...uv,...opticalTilt,width,height,1));
+   const coverage=model.stickerReflection(...opticalFrame,...uv,aspect);
+   const highlight=model.stickerHighlight(coverage,intensity),substrate=model.stickerSubstrate(...uv,aspect);
+   const color=base.map(c=>model.stickerSdr(c,highlight,substrate,Math.max(...base)));
+   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity,highlight,substrate)):color;
    const edgeDistance=distance(uv,aspect),alpha=1-smoothstep(-1.5/height,1.5/height,edgeDistance);
-   return {base,color,hdrColor,coverage,highlight,silver,glare,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
+   return {base,color,hdrColor,coverage,highlight,substrate,glare,tilt,rawBase,opticalTilt,opticalFrame,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
  };
  return model;
 }

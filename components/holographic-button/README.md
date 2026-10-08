@@ -1,4 +1,4 @@
-> v1.0.0-preview.10: isolated HDR preview, not published to npm. Sticker Foil retains its accepted diffraction texture and strength-5 preview. Its broad silver reflection now has a slightly narrower, right-shifted angular response, linear-light composition and subtle texture-linked softness. No glow is added. Existing rim, other material textures and interaction behavior are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
+> v1.0.0-preview.11: isolated HDR preview, not published to npm. Sticker Foil now couples rainbow color and reflected brightness instead of overlaying a separate silver-white highlight. The accepted texture and strength-5 demo are retained. Existing rim, other materials and native interaction behavior remain preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
 
 # @neocjmix/holographic-button
 
@@ -90,7 +90,7 @@ The internal preset is informed by common PBR material concepts but uses a compa
 
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, and `sticker-foil`.
 
-Sticker Foil combines its reference-derived pastel field and enlarged diamond pattern with a separate broad, soft silver-white reflection. At alignment the reflection spans the face while retaining faint gray texture; tilting away moves a wide gradient across it. The demo starts at strength 5 and retains its 0–10 control. The component API default remains 1. HDR output depends on display headroom and is not a calibrated luminance multiple.
+Sticker Foil treats its reference-derived rainbow field and enlarged diamond pattern as colored reflected light. Its color and brightness respond to a common light/view configuration; it no longer overlays a separate silver-white state. The demo starts at strength 5 and retains its 0–10 control. The component API default remains 1. HDR output depends on display headroom and is not a calibrated luminance multiple.
 
 ## Motion permission
 

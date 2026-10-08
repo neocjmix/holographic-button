@@ -1,35 +1,25 @@
 # v1 HDR preview
 
-Version **1.0.0-preview.10** refines the broad silver reflection after preview.9. The accepted diffraction colors, diamond pattern, grain, shallow inset rim, aurora sensitivity and strength-5 preview remain.
+Version **1.0.0-preview.11** changes Sticker Foil's optical concept: the rainbow itself is reflected light. It no longer combines an independently moving rainbow with a separate silver-white highlight.
 
-## Optical diagnosis
+## One reflected-light response
 
-The previous softbox had a broad flat plateau, followed by an encoded-RGB crossfade toward fixed gray. At strength 5 the full-coverage blend reached about 94%. The geometry was reflection-directed, but the material response could resemble a color replacement rather than changing reflected illumination. Adding bloom alone would not repair that cue.
+The reflected viewing ray is projected into the existing rightward light frame. Those same coordinates drive both the rainbow phase displacement and the angular reflection envelope. Sensor motion, perspective and the shallow rim consequently change color and brightness together. There is no independent gravity-driven hue layer underneath a white mask.
 
-A neutral specular reflection is compatible with diffraction: in the specular direction multiple wavelengths can contribute together. The next step is improving the reflection response, not replacing the accepted colorful field with a full spectral simulation.
+The accepted source-derived pastel curve, enlarged diamond pattern (scale 12.5), grain and shallow inset rim remain. The softened motion gain is retained on the new optical coordinate, so motion is not numerically identical to the previous gravity-only color adapter. Heading can now affect color and brightness together because the source remains world-fixed.
 
-## Bounded changes
+The background is a low neutral textured substrate. Colored reflected radiance brightens when it catches the source and falls away as the angle moves away. HDR increases this same colored reflection instead of adding a separate white state. SDR uses a shared RGB-scale highlight shoulder to preserve hue rather than clip channels to white; this compresses fine brightness contrast compared with the previous silver state, while the underlying checker/grain functions remain unchanged. The previous silver crossfade, peak desaturation and source-luminance floor are removed.
 
-- Narrow the inner angular plateau slightly while retaining broad, soft outer shoulders
-- Move the reflected source toward screen-right at the reference portrait pose
-- Evaluate the new neutral reflected contribution in linear light, then encode for presentation
-- Preserve source luminance when neutralizing bright HDR color, so this stylized highlight does not make existing bright patches darker. This is an artistic continuity rule, not a universal law of diffraction; individual colored diffraction orders can physically be brighter than another reflection direction.
-- Give the accepted checker/grain a very subtle influence on reflection softness and add gentle illumination variation within the bright region
-- Keep source aurora exact outside the reflection; no glow, new decorative texture or original-four-material changes
+## Approximation, not a full diffraction solver
 
-This remains an artistic, inexpensive area-environment approximation, not a complete conductor BRDF or area-light integral. A small analytic light is not evidence of a physically measured emitter. The world-fixed highlight remains heading-dependent; the separate aurora is heading-independent.
+A real grating can retain a zero-order achromatic reflection without a separate coating. That does not require reproducing it as a large independent white overlay. This revision intentionally prioritizes a coupled colored-reflection appearance.
 
-## References
+The phase colors remain an artistic approximation informed by [Stam / GPU Gems: Simulating Diffraction](https://developer.nvidia.com/gpugems/gpugems/part-i-natural-effects/chapter-8-simulating-diffraction). This is not a spectral grating equation, complete conductor BRDF, measured BSDF or integrated area-light simulation. [PBRT conductor reflection](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) and [Filament linear lighting](https://google.github.io/filament/Filament.html) inform the shading pipeline.
 
-- [Stam / GPU Gems: Simulating Diffraction](https://developer.nvidia.com/gpugems/gpugems/part-i-natural-effects/chapter-8-simulating-diffraction)
-- [PBRT: Conductor BRDF](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF)
-- [Filament: physically based rendering and linear lighting](https://google.github.io/filament/Filament.html)
-- [Heitz et al.: polygonal lights with LTC](https://eheitzresearch.wordpress.com/415-2/) and [authors' WebGL demo](https://blog.selfshadow.com/sandbox/ltc.html)
+## Preservation and validation
 
-These inform the approximation; no reference shader code or assets were copied for this revision.
+The original four materials, shared motion hook, native button behavior and CSS remain unchanged. Demo strength starts at 5 and retains the 0–10 control; component API default remains 1. CPU analytical comparisons and compilation do not verify physical HDR appearance. The cloud browser has no GPU; final appearance depends on the user's device and available headroom.
 
-## Validation and publication
+## Publication
 
-CPU analytical comparisons and shader compilation cannot verify physical HDR appearance. The cloud browser has no GPU. Real output depends on the user's browser/display headroom. The demo starts at 5 with its existing 0–10 slider; API default remains 1.
-
-MIT attribution for bpisano/Sticker remains included. Both repositories are public, but npm publication guards remain enabled. No npm release, main merge, tag or original-demo replacement is authorized.
+MIT attribution for bpisano/Sticker remains included. No new reference code or assets are copied. Both repositories are public, but npm publication guards remain enabled. No npm release, main merge, tag or original-demo replacement is authorized.

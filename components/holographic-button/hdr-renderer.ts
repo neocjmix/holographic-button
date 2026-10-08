@@ -6,8 +6,10 @@
  *
  * Preview.8 retargets specular lights to portrait pitch, broadens them 20%, and
  * adds controlled Sticker Foil gloss. Original incidence still drives colors.
- * Preview.10 refines only the foil softbox direction/width and linear-light
- * reflection response; source texture and the preview.9 motion gain stay intact.
+ * Preview.11 couples foil phase and colored radiance to one reflected-light frame.
+ * The source curve/pattern and 20% softened gain remain; gravity-only phase and
+ * the separate white overlay are removed. This is a stylized optical response.
+ * SDR uses an RGB-wide shoulder; HDR extends the same colored reflection.
  * HDR presentation:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
  *   E = max(M - max(B, 1), 0)        specular-only excess above the SDR shoulder
@@ -136,7 +138,7 @@ fn presentHdr(metal: vec3f, nonSpecular: vec3f, alpha: f32) -> vec4f {
 // Sticker foil adapted from bpisano/Sticker at 301b9e0 (MIT).
 // Environment defaults, not the ShaderLibrary wrapper's scale=2 default.
 // Top-left UV; CSS-point random; only the checker uses aspect correction.
-// Reflection precedes foil. On this white fill it cannot bleach the foil RGB.
+// Preserve upstream white-fill foil color curve as the colored reflection carrier.
 // Canvas uses geometric coverage alpha: upstream contrast also alters alpha,
 // which is not portable to a premultiplied browser canvas. See reference tests.
 fn stickerRandom(x: f32, y: f32) -> f32 {
@@ -158,22 +160,15 @@ fn stickerDiamond(x: f32, y: f32, aspect: f32) -> f32 {
 fn stickerPhase(position: f32, transform: f32) -> f32 {
   return 10. * (position + 2.5 - 1.5 * transform) / 3.;
 }
-// Adapter from the existing attitude matrix to source accelerometer motion.
-// Principal gravity-component tilt uses asin: continuous through upright poses.
-// Source maxRotation=pi/2 softening, with 20% extra motion gain. This avoids
-// Euler branch jumps; it is not an exact CoreMotion roll/pitch reconstruction.
+// Optical angular adapter, retaining the source softening with 20% extra gain.
+// Both phase axes use the same reflected-light frame as angular visibility.
+// This is a stylized colored reflection, not a wavelength-resolved diffraction solver.
 fn stickerMotion(axis: f32) -> f32 {
   let angle = asin(clamp(axis, -1., 1.));
   return .6 * angle / (1. + abs(angle) / 1.5707963267948966);
 }
-fn stickerGlare(x: f32, y: f32, tx: f32, ty: f32, aspect: f32) -> f32 {
-  let dx = x - (.5 + tx); let dy = y - (.5 + ty);
-  let radius = min(aspect, 1.) / (2. * aspect);
-  return 1. - smoothstep(0., radius, sqrt(dx * dx + dy * dy));
-}
-fn stickerReflectedBase(base: f32, glare: f32, intensity: f32) -> f32 {
-  return mix(base, 1., clamp(.3 * max(intensity, 0.) * glare, 0., 1.));
-}
+
+
 fn stickerChannel(channel: f32, x: f32, y: f32, tx: f32, ty: f32, width: f32, height: f32, base: f32) -> f32 {
   let phaseX = stickerPhase(x, tx); let phaseY = stickerPhase(y, ty);
   let jitter = stickerRandom(x * width, y * height) * .1;
@@ -202,14 +197,15 @@ fn stickerReflection(horizontal: f32, vertical: f32, forward: f32, x: f32, y: f3
   let roughness = 1. + .02 * (stickerDiamond(x, y, aspect) - .5) + .02 * (stickerNoise(x * 100., y * 100.) - .5);
   let h = horizontal / max(forward, .001);
   let v = vertical / max(forward, .001);
-  // Smooth emitter radiance variation removes the motionless flat white plateau.
+  // Smooth emitter radiance variation keeps colored reflection responsive in the core.
   let emitter = 1. - .04 * (1. - 1. / (1. + 4. * (h / .58) * (h / .58) + 4. * (v / .095) * (v / .095)));
   return stickerSoftbox(horizontal / roughness, vertical / roughness, forward) * emitter;
 }
+
 fn stickerHighlight(coverage: f32, intensity: f32) -> f32 {
   return coverage * max(intensity, 0.) / (.35 + max(intensity, 0.));
 }
-fn stickerSilver(x: f32, y: f32, aspect: f32) -> f32 {
+fn stickerSubstrate(x: f32, y: f32, aspect: f32) -> f32 {
   return .98 - .07 * stickerDiamond(x, y, aspect) - .025 * stickerNoise(x * 100., y * 100.);
 }
 fn stickerDecode(c: f32) -> f32 {
@@ -221,27 +217,23 @@ fn stickerEncode(c: f32) -> f32 {
   return 1.055 * pow(c, 1. / 2.4) - .055;
 }
 // Both canvases receive encoded values; compose reflected light in linear space.
-fn stickerLinear(base: f32, highlight: f32, silver: f32, headroom: f32) -> f32 {
-  return mix(stickerDecode(base), stickerDecode(silver) * (1. + headroom), highlight);
+fn stickerLinear(base: f32, highlight: f32, substrate: f32, headroom: f32) -> f32 {
+  // Dim neutral environment plus one colored reflection; no white highlight layer.
+  return .055 * stickerDecode(substrate) + stickerDecode(max(base, 0.)) * highlight * (.82 + headroom);
 }
-fn stickerSdr(base: f32, highlight: f32, silver: f32) -> f32 {
-  if (highlight <= 0.) { return clamp(base, 0., 1.); }
-  return stickerEncode(stickerLinear(clamp(base, 0., 1.), highlight, silver, 0.));
+fn stickerSdr(base: f32, highlight: f32, substrate: f32, peak: f32) -> f32 {
+  let radiance = stickerLinear(base, highlight, substrate, 0.);
+  let peakRadiance = stickerLinear(peak, highlight, substrate, 0.);
+  let excess = max(peakRadiance - .8, 0.);
+  let shoulder = .8 + .2 * excess / (.2 + excess);
+  let scale = min(1., shoulder / max(peakRadiance, .00001));
+  return stickerEncode(radiance * scale);
 }
-// Keep source energy while removing chroma under the neutral emitter. This is an
-// artistic continuity guard, not a claim that diffraction orders conserve brightness.
-fn stickerSource(base: f32, intensity: f32) -> f32 {
+// Extended-range light strengthens the same colored reflection, without neutralization.
+
+fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 {
   let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
-  return clamp(base, 0., 1.) + max(base - 1., 0.) * strength;
-}
-fn stickerHdr(base: f32, intensity: f32, highlight: f32, silver: f32, sourceLuma: f32) -> f32 {
-  let source = stickerSource(base, intensity);
-  if (highlight <= 0.) { return source; }
-  let neutral = max(3. * stickerDecode(silver), sourceLuma);
-  // Extra neutralization only near alignment; preserve the colored shoulders.
-  let desaturation = highlight + (1. - highlight) * pow(highlight, 4.);
-  let achromatic = mix(stickerDecode(source), sourceLuma, desaturation);
-  return stickerEncode(achromatic + (neutral - sourceLuma) * highlight);
+  return stickerEncode(stickerLinear(base, highlight, substrate, .5 * strength));
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -265,29 +257,23 @@ fn stickerHdr(base: f32, intensity: f32, highlight: f32, silver: f32, sourceLuma
   if (method > 3.5) {
     if (al < .01) { return vec4f(0.); }
     let stickerUv = vec2f(uv.x, 1. - uv.y);
-    let stickerTilt = vec2f(-u.worldFromDevice[0].z, u.worldFromDevice[1].z);
-    let tx = stickerMotion(stickerTilt.x);
-    let ty = stickerMotion(stickerTilt.y);
-    let stickerShine = stickerGlare(stickerUv.x, stickerUv.y, tx, ty, a);
-    let stickerInput = stickerReflectedBase(1., stickerShine, specularIntensity);
-    let stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput),
-                             stickerChannel(1., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput),
-                             stickerChannel(2., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput));
+    let stickerInput = 1.;
     let sn = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y, 1.)), 0.)).xyz);
     let sv = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
     let sr = reflect(-sv, sn);
+    let opticalX = stickerMotion(dot(sr, vec3f(.997884910, -.011350451, -.064006826)));
+    let opticalY = stickerMotion(dot(sr, vec3f(.062139647, .455690748, .887966557)));
+    let stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
+                             stickerChannel(1., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
+                             stickerChannel(2., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput));
     let coverage = stickerReflection(dot(sr, vec3f(.997884910, -.011350451, -.064006826)),
                                   dot(sr, vec3f(.062139647, .455690748, .887966557)),
                                   dot(sr, vec3f(.019088498, -.890065790, .455432235)), stickerUv.x, stickerUv.y, a);
     let highlight = stickerHighlight(coverage, specularIntensity);
-    let silver = stickerSilver(stickerUv.x, stickerUv.y, a);
-    let sourceLinear = vec3f(stickerDecode(stickerSource(stickerBase.r, specularIntensity)),
-                             stickerDecode(stickerSource(stickerBase.g, specularIntensity)),
-                             stickerDecode(stickerSource(stickerBase.b, specularIntensity)));
-    let sourceLuma = dot(sourceLinear, vec3f(.2126, .7152, .0722));
-    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, highlight, silver, sourceLuma),
-                            stickerHdr(stickerBase.g, specularIntensity, highlight, silver, sourceLuma),
-                            stickerHdr(stickerBase.b, specularIntensity, highlight, silver, sourceLuma));
+    let substrate = stickerSubstrate(stickerUv.x, stickerUv.y, a);
+    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, highlight, substrate),
+                            stickerHdr(stickerBase.g, specularIntensity, highlight, substrate),
+                            stickerHdr(stickerBase.b, specularIntensity, highlight, substrate));
     return vec4f(stickerRgb * al, al);
   }
   let grain = noise(uv * vec2f(720., 115.));
