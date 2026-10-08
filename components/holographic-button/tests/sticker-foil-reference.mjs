@@ -36,7 +36,7 @@ const functionParameters={
  stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
  stickerPhase:['position','transform'],stickerMotion:['axis'],
  stickerChannel:['channel','x','y','tx','ty','width','height','base'],
- stickerGlare:['x','y','tx','ty','aspect'],stickerReflectedBase:['base','glare','intensity'],stickerGloss:['radiance','intensity'],stickerSdr:['base','gloss'],
+ stickerGlare:['x','y','tx','ty','aspect'],stickerReflectedBase:['base','glare','intensity'],stickerSoftbox:['horizontal','vertical','forward'],stickerHighlight:['coverage','intensity'],stickerSilver:['x','y','aspect'],stickerSdr:['base','highlight','silver'],
 };
 const mul=(a,b)=>{const o=new Array(9).fill(0);for(let r=0;r<3;r++)for(let c=0;c<3;c++)for(let k=0;k<3;k++)o[r*3+c]+=a[r*3+k]*b[k*3+c];return o};
 const matrixFunction=new Function('rad','mul','alpha','beta','gamma','screenAngle',bodyOf(componentSource,'function attitudeMatrix(')).bind(null,n=>n*Math.PI/180,mul);
@@ -52,7 +52,7 @@ export function sourceModel(shader,language) {
  model.smithVisibility=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} smithVisibility(`,['nl','nv','r']);
  model.brdf=scalarFunction(shader,`${language==='GLSL'?'float':'fn'} conductorBRDF(`,['nh','nl','nv','vh','r'],model);
  model.rim=scalarFunction(shader,`${language==='GLSL'?'vec2':'fn'} rimProfile(`,['inward']);
- if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity','gloss'],model);
+ if(language==='WGSL')model.stickerHdr=scalarFunction(shader,'fn stickerHdr(',['base','intensity','highlight','silver'],model);
  model.shade=({uv,aspect=4,pose=[0,0,0],matrix=attitude(pose),intensity=1,height=148,transform,sourceBase=1}={})=>{
    const width=aspect*height;
    const tilt=transform??[model.stickerMotion(-matrix[2]),model.stickerMotion(matrix[5])];
@@ -66,14 +66,13 @@ export function sourceModel(shader,language) {
    const dy=(distance([uv[0],uv[1]-eps],aspect)-distance([uv[0],uv[1]+eps],aspect))/(2*eps);
    const grad=norm([dx+.00001,dy+.00001]),slope=model.rim(Math.max(-distance(uv,aspect),0))[1];
    const n=norm(world(norm([grad[0]*slope,grad[1]*slope,1]))),v=norm(world(norm([-(uv[0]-.5)*aspect,uv[1]-.5,5])));
-   const l=norm([-.12,-.88,.46]),h=norm(l.map((x,i)=>x+v[i]));
-   const nl=Math.max(dot(n,l),0),nv=clamp(dot(n,v),.001,1),nh=Math.max(dot(n,h),0),vh=clamp(dot(v,h));
-   const brdf=model.brdf(nh,nl,nv,vh,.32);
-   const gloss=model.stickerGloss(brdf*nl*.25,intensity);
-   const color=base.map(c=>model.stickerSdr(c,gloss));
-   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity,gloss)):color;
+   const reflected=n.map((x,i)=>2*dot(n,v)*x-v[i]);
+   const coverage=model.stickerSoftbox(dot(reflected,[.990830168,-.135113205,0]),dot(reflected,[.062139647,.455690748,.887966557]),dot(reflected,[-.119976007,-.879824053,.459908028]));
+   const highlight=model.stickerHighlight(coverage,intensity),silver=model.stickerSilver(...uv,aspect);
+   const color=base.map(c=>model.stickerSdr(c,highlight,silver));
+   const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity,highlight,silver)):color;
    const edgeDistance=distance(uv,aspect),alpha=1-smoothstep(-1.5/height,1.5/height,edgeDistance);
-   return {base,color,hdrColor,gloss,glare,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
+   return {base,color,hdrColor,coverage,highlight,silver,glare,tilt,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
  };
  return model;
 }

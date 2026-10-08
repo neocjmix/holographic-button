@@ -6,6 +6,8 @@
  *
  * Preview.8 retargets specular lights to portrait pitch, broadens them 20%, and
  * adds controlled Sticker Foil gloss. Original incidence still drives colors.
+ * Preview.9 replaces only the foil point gloss with a broad softbox and raises
+ * foil motion gain 20%; its neutral textured highlight has independent bounds.
  * HDR presentation:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
  *   E = max(M - max(B, 1), 0)        specular-only excess above the SDR shoulder
@@ -158,11 +160,11 @@ fn stickerPhase(position: f32, transform: f32) -> f32 {
 }
 // Adapter from the existing attitude matrix to source accelerometer motion.
 // Principal gravity-component tilt uses asin: continuous through upright poses.
-// Source maxRotation=pi/2 softening and /2 follow. This bounded adapter avoids
+// Source maxRotation=pi/2 softening, with 20% extra motion gain. This avoids
 // Euler branch jumps; it is not an exact CoreMotion roll/pitch reconstruction.
 fn stickerMotion(axis: f32) -> f32 {
   let angle = asin(clamp(axis, -1., 1.));
-  return .5 * angle / (1. + abs(angle) / 1.5707963267948966);
+  return .6 * angle / (1. + abs(angle) / 1.5707963267948966);
 }
 fn stickerGlare(x: f32, y: f32, tx: f32, ty: f32, aspect: f32) -> f32 {
   let dx = x - (.5 + tx); let dy = y - (.5 + ty);
@@ -187,19 +189,29 @@ fn stickerChannel(channel: f32, x: f32, y: f32, tx: f32, ty: f32, width: f32, he
   if (channel < 1.5) { return (green - .5) * checkerContrast * grainContrast + .5; }
   return (blue - .5) * checkerContrast * grainContrast + .5;
 }
-fn stickerGloss(radiance: f32, intensity: f32) -> f32 {
-  let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
-  return max(radiance, 0.) / (1. + max(radiance, 0.)) * strength;
+// Extended softbox reflection: flat center, broad separable angular shoulders.
+// No radial UV spot; finite perspective and the existing rim shape the reflection.
+fn stickerSoftbox(horizontal: f32, vertical: f32, forward: f32) -> f32 {
+  let denominator = max(forward, .001);
+  let side = 1. - smoothstep(.72, 2.8, abs(horizontal) / denominator);
+  let top = 1. - smoothstep(.12, .65, abs(vertical) / denominator);
+  return side * top * smoothstep(0., .25, forward);
 }
-fn stickerSdr(base: f32, gloss: f32) -> f32 {
-  return mix(clamp(base, 0., 1.), 1., .36 * gloss / (1. + gloss));
+fn stickerHighlight(coverage: f32, intensity: f32) -> f32 {
+  return coverage * max(intensity, 0.) / (.35 + max(intensity, 0.));
 }
-// Preserve source over-white color and add a localized, bounded metal gloss.
-// Numeric specular controls both; zero restores the source SDR color exactly.
-fn stickerHdr(base: f32, intensity: f32, gloss: f32) -> f32 {
-  let sdr = stickerSdr(base, gloss);
+fn stickerSilver(x: f32, y: f32, aspect: f32) -> f32 {
+  return .98 - .07 * stickerDiamond(x, y, aspect) - .025 * stickerNoise(x * 100., y * 100.);
+}
+fn stickerSdr(base: f32, highlight: f32, silver: f32) -> f32 {
+  return mix(clamp(base, 0., 1.), silver, highlight);
+}
+// Source aurora radiance stays unchanged away from the softbox. At alignment,
+// attenuate chromatic excess and lift the same neutral texture into HDR headroom.
+fn stickerHdr(base: f32, intensity: f32, highlight: f32, silver: f32) -> f32 {
+  let sdr = stickerSdr(base, highlight, silver);
   let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
-  return sdr + max(base - 1., 0.) * strength + .30 * gloss / (1. + .2 * gloss) * (.65 + .35 * clamp(base, 0., 1.));
+  return sdr + max(base - 1., 0.) * strength * (1. - highlight) * (1. - highlight) + .70 * highlight * silver;
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -233,14 +245,15 @@ fn stickerHdr(base: f32, intensity: f32, gloss: f32) -> f32 {
                              stickerChannel(2., stickerUv.x, stickerUv.y, tx, ty, material.x, material.y, stickerInput));
     let sn = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y, 1.)), 0.)).xyz);
     let sv = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
-    let slight = normalize(vec3f(-.12, -.88, .46));
-    let sh = normalize(slight + sv);
-    let snl = max(dot(sn, slight), 0.);
-    let snv = clamp(dot(sn, sv), .001, 1.);
-    let gloss = stickerGloss(conductorBRDF(max(dot(sn, sh), 0.), snl, snv, clamp(dot(sv, sh), 0., 1.), .32) * snl * .25, specularIntensity);
-    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, gloss),
-                            stickerHdr(stickerBase.g, specularIntensity, gloss),
-                            stickerHdr(stickerBase.b, specularIntensity, gloss));
+    let sr = reflect(-sv, sn);
+    let coverage = stickerSoftbox(dot(sr, vec3f(.990830168, -.135113205, 0.)),
+                                  dot(sr, vec3f(.062139647, .455690748, .887966557)),
+                                  dot(sr, vec3f(-.119976007, -.879824053, .459908028)));
+    let highlight = stickerHighlight(coverage, specularIntensity);
+    let silver = stickerSilver(stickerUv.x, stickerUv.y, a);
+    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, highlight, silver),
+                            stickerHdr(stickerBase.g, specularIntensity, highlight, silver),
+                            stickerHdr(stickerBase.b, specularIntensity, highlight, silver));
     return vec4f(stickerRgb * al, al);
   }
   let grain = noise(uv * vec2f(720., 115.));

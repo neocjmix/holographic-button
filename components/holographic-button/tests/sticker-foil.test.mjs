@@ -91,11 +91,11 @@ test('actual GLSL and WGSL scalar source agrees; SDR clamps only at presentation
 test('HDR preserves natural source excess at1 and offers a genuinely stronger upper range',()=>{
  const model=models[1][1];
  for(const base of [.1,.7,1,1.1,1.3]){
-  assert.equal(model.stickerHdr(base,0,0),Math.min(base,1));
-  assert.equal(model.stickerHdr(base,1,0),base);
+  assert.equal(model.stickerHdr(base,0,0,.96),Math.min(base,1));
+  assert.equal(model.stickerHdr(base,1,0,.96),base);
   let prior=0;
   for(const intensity of [0,.25,.5,1,2,3,1000]){
-   const out=model.stickerHdr(base,intensity,0);
+   const out=model.stickerHdr(base,intensity,0,.96);
    assert.ok(out>=prior&&out<=Math.min(base,1)+11*Math.max(base-1,0));prior=out;
   }
  }
@@ -110,22 +110,49 @@ for(const [language,model] of models)test(`${language}: gravity adapter is conti
  }
 });
 
-test('natural portrait gloss is localized, chromatic and stronger at10 in SDR and HDR',()=>{
- for(const [language,model] of models)for(const pose of [[55,0,0],[62,-7,0],[70,0,0]]){
-  const rows=[0,1,3,10].map(intensity=>samples(model,{pose,intensity},81,23));
-  for(let i=1;i<rows.length;i++)for(let j=0;j<rows[i].length;j++){
-   assert.ok(rows[i][j].color.every((x,c)=>Number.isFinite(x)&&x>=rows[i-1][j].color[c]&&x<=1));
-   assert.equal(rows[i][j].alpha,rows[0][j].alpha);
-   if(language==='WGSL')assert.ok(rows[i][j].hdrColor.every((x,c)=>Number.isFinite(x)&&x>=rows[i-1][j].hdrColor[c]));
+test('softbox aligned at portrait fills the face with neutral textured silver in SDR and HDR',()=>{
+ for(const [language,model] of models)for(const aspect of [1,2,4,6]){
+  const row=samples(model,{pose:[62.4,-6.9,0],aspect,intensity:5},101,31);
+  assert.ok(Math.min(...row.map(s=>s.coverage))>.99,`${language} aspect${aspect}`);
+  assert.ok(Math.max(...row.map(s=>chroma(s.color)))<.05);
+  assert.ok(row.every(s=>s.color.every(c=>c<1&&c>.82)));
+  if(language==='WGSL')assert.ok(Math.max(...row.map(s=>chroma(s.hdrColor)/luminance(s.hdrColor)))<.055);
+  // Texture must remain visible within each local neighborhood, where the
+  // softbox is flat; a large-scale illumination gradient cannot satisfy this.
+  const patch=Array.from({length:100},(_,i)=>model.shade({uv:[.45+(i%10)*.002,.45+Math.floor(i/10)*.002],aspect,pose:[62.4,-6.9,0],intensity:5}));
+  assert.ok(Math.max(...patch.map(s=>luminance(s.color)))-Math.min(...patch.map(s=>luminance(s.color)))>.045);
+ }
+});
+test('off-angle softbox shoulder is a broad monotonic gradient, with exact source recovery outside',()=>{
+ for(const [language,model] of models){
+  const row=Array.from({length:31},(_,i)=>model.shade({uv:[.08+.84*i/30,.5],pose:[62.4,45,0],intensity:5}));
+  const weights=row.map(s=>s.coverage);
+  assert.ok(Math.max(...weights)-Math.min(...weights)>.4,JSON.stringify(weights));
+  assert.ok(weights.filter(v=>v>.05&&v<.95).length>row.length*.6);
+  for(let i=1;i<weights.length;i++)assert.ok(weights[i]<=weights[i-1]+1e-6);
+  for(const pose of [[-80,0,0],[0,0,180]])for(const uv of [[.2,.3],[.5,.5],[.8,.7]]){
+   const s=model.shade({uv,pose,intensity:5});assert.equal(s.highlight,0);
+   assert.deepEqual(s.color,s.base.map(c=>Math.max(0,Math.min(1,c))));
   }
-  const peak=rows.map(row=>Math.max(...row.map(s=>s.gloss)));
-  assert.ok(peak[1]>.35,JSON.stringify({pose,peak}));
-  assert.ok(peak[3]>peak[2]*2&&peak[3]>peak[1]*5);
-  assert.ok(average(rows[1].map(s=>chroma(s.color)))>average(rows[0].map(s=>chroma(s.color)))*.8);
-  assert.ok(rows[1].filter(s=>s.gloss>.5).length<rows[1].length*.55);
-  if(language==='WGSL'){
-   const peaks=rows.map(row=>Math.max(...row.flatMap(s=>s.hdrColor.map(decode))));
-   assert.ok(peaks[3]>peaks[2]*1.5&&peaks[3]>peaks[1]*2,JSON.stringify({pose,peaks}));
+ }
+});
+test('softbox bound is separate from aurora strength, and source motion gains exactly20%',()=>{
+ for(const [,model] of models){
+  for(const axis of [-1,-.7,0,.2,1]){
+   const angle=Math.asin(axis),old=.5*angle/(1+Math.abs(angle)/(Math.PI/2));
+   assert.ok(Math.abs(model.stickerMotion(axis)-1.2*old)<1e-12);
+  }
+  assert.ok(model.stickerHighlight(1,5)>.93&&model.stickerHighlight(1,5)<.94);
+  for(const intensity of [0,.1,1,5,10,1000])for(const coverage of [0,.2,1])assert.ok(model.stickerHighlight(coverage,intensity)<=1);
+ }
+});
+test('world-lit highlight remains finite and continuous at portrait, landscape and heading changes',()=>{
+ for(const [,model] of models)for(const beta of [-180,-90,0,62.4,90,180])for(const gamma of [-90,0,90])for(const heading of [0,90,180,270]){
+  const pose=[beta,gamma,heading],a=model.shade({uv:[.39,.61],pose,intensity:5});
+  assert.ok([...a.color,...a.hdrColor,a.coverage].every(Number.isFinite));
+  for(const axis of [0,1,2]){
+   const next=pose.map((v,i)=>v+(i===axis?.01:0)),b=model.shade({uv:[.39,.61],pose:next,intensity:5});
+   assert.ok(Math.abs(a.coverage-b.coverage)<.005);
   }
  }
 });

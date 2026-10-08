@@ -29,7 +29,7 @@ export default function Home(){
  const[label,setLabel]=useState("ACTIVATE");
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
- const[specular,setSpecular]=useState(1);
+ const[specular,setSpecular]=useState(5);
  const[disabled,setDisabled]=useState(false);
  const[manager,setManager]=useState<keyof typeof installCommands>("npm");
  const[activated,setActivated]=useState(0);
@@ -47,10 +47,10 @@ export default function Home(){
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.8</em></a>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.9</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.8 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.9 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -105,8 +105,8 @@ export default function Home(){
   </section>
 
   <section className="materials section-frame" id="materials">
-   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Five optical models.</h2><p>All five variants share the refined lighting and rim. Their distinct color textures are retained, with a larger pattern on Sticker Foil.</p></div>
-   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
+   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Five optical models.</h2><p>Sticker Foil keeps its diffraction texture and adds a broad, soft silver reflection. Its preview strength starts at 5; the other four material samples retain their existing settings.</p></div>
+   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} specular={item.value==="sticker-foil"?5:1} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
   <section className="api section-frame" id="api">

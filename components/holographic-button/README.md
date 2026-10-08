@@ -1,4 +1,4 @@
-> v1.0.0-preview.8: isolated HDR preview, not published to npm. Sticker Foil retains the reference-derived pastel field with a larger pattern and added metal gloss. The shared highlight angle/width and inset rim are refined; the demo strength range is 0–10. Existing texture formulas and interaction behavior are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
+> v1.0.0-preview.9: isolated HDR preview, not published to npm. Sticker Foil retains its accepted diffraction texture, increases aurora movement sensitivity slightly and adds a separate broad silver-white reflection. The demo starts at strength 5. Existing rim, other material textures and interaction behavior are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
 
 # @neocjmix/holographic-button
 
@@ -90,7 +90,7 @@ The internal preset is informed by common PBR material concepts but uses a compa
 
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, and `sticker-foil`.
 
-Sticker Foil combines the reference-derived pastel field with a larger diamond pattern and a restrained world-lit gloss. Numeric specular controls its gloss in both SDR and HDR. HDR-capable displays retain additional highlight headroom. The demo allows 0–10; perceived brightness depends on display headroom and is not a calibrated luminance multiple.
+Sticker Foil combines its reference-derived pastel field and enlarged diamond pattern with a separate broad, soft silver-white reflection. At alignment the reflection spans the face while retaining faint gray texture; tilting away moves a wide gradient across it. The demo starts at strength 5 and retains its 0–10 control. The component API default remains 1. HDR output depends on display headroom and is not a calibrated luminance multiple.
 
 ## Motion permission
 

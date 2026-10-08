@@ -12,3 +12,5 @@ test('preserve texture segment vec3 e=env(r',async()=>{const now=await readFile(
 test('preserve texture segment float hash(v',async()=>{const now=await readFile('components/holographic-button/index.tsx','utf8');assert.equal(hash(now.slice(now.indexOf('float hash(vec2 p)'),now.indexOf('float ggx(float n'))),'ecb600c17d992b68b3df980ff46991660b5ee7c4eed1f00dcd03929dedd01a05')});
 
 test("original preset values stay intact beside new foil",async()=>{const s=await readFile("components/holographic-button/index.tsx","utf8");for(const value of ['"spectral-film":{method:0,material:[.08,.72,.11,.55]}','"brushed-foil":{method:1,material:[.46,.48,.23,.82]}','"thin-film":{method:2,material:[.78,.62,.18,.32]}','"facet-chrome":{method:3,material:[1.18,1.05,.09,1]}'])assert.ok(s.includes(value));assert.ok(s.includes('"sticker-foil":{method:4'))});
+
+test('foil preview starts at accepted strength five without changing API defaults',async()=>{const demo=await readFile('app/page.tsx','utf8');assert.match(demo,/const\[specular,setSpecular\]=useState\(5\)/);assert.ok(demo.includes('specular={item.value==="sticker-foil"?5:1}'));});
