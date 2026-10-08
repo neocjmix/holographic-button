@@ -112,14 +112,14 @@ for(const [language,model] of models)test(`${language}: gravity adapter is conti
 
 test('softbox aligned at portrait fills the face with neutral textured silver in SDR and HDR',()=>{
  for(const [language,model] of models)for(const aspect of [1,2,4,6]){
-  const row=samples(model,{pose:[62.4,-6.9,0],aspect,intensity:5},101,31);
-  assert.ok(Math.min(...row.map(s=>s.coverage))>.99,`${language} aspect${aspect}`);
+  const row=samples(model,{pose:[62.902,1.094,0],aspect,intensity:5},101,31);
+  assert.ok(Math.min(...row.map(s=>s.coverage))>.955,`${language} aspect${aspect}`);
   assert.ok(Math.max(...row.map(s=>chroma(s.color)))<.05);
   assert.ok(row.every(s=>s.color.every(c=>c<1&&c>.82)));
   if(language==='WGSL')assert.ok(Math.max(...row.map(s=>chroma(s.hdrColor)/luminance(s.hdrColor)))<.055);
-  // Texture must remain visible within each local neighborhood, where the
-  // softbox is flat; a large-scale illumination gradient cannot satisfy this.
-  const patch=Array.from({length:100},(_,i)=>model.shade({uv:[.45+(i%10)*.002,.45+Math.floor(i/10)*.002],aspect,pose:[62.4,-6.9,0],intensity:5}));
+  // Texture must remain visible within each local neighborhood, while the
+  // softbox varies gently; a large-scale gradient alone cannot satisfy this.
+  const patch=Array.from({length:100},(_,i)=>model.shade({uv:[.45+(i%10)*.002,.45+Math.floor(i/10)*.002],aspect,pose:[62.902,1.094,0],intensity:5}));
   assert.ok(Math.max(...patch.map(s=>luminance(s.color)))-Math.min(...patch.map(s=>luminance(s.color)))>.045);
  }
 });
@@ -163,5 +163,81 @@ test('gloss off restores raw SDR and alpha stays finite at silhouette and all po
   assert.ok([...s.color,...s.hdrColor,s.alpha].every(Number.isFinite));
   assert.ok(s.alpha>=0&&s.alpha<=1);
   if(intensity===0){assert.deepEqual(s.color,s.base.map(x=>Math.max(0,Math.min(1,x))));assert.deepEqual(s.hdrColor,s.color)}
+ }
+});
+
+test('actual shader light frames agree and shift reflection primarily screen-right',()=>{
+ const [a,b]=models.map(([,m])=>m.basis);assert.deepEqual(a,b);
+ for(const axis of a)assert.ok(Math.abs(Math.hypot(...axis)-1)<1e-8);
+ const matrix=attitude([62.4,-6.9,0]);const light=a[2];
+ const local=[0,1,2].map(c=>matrix.slice(c*3,c*3+3).reduce((s,v,i)=>s+v*light[i],0));
+ const dx=5*local[0]/local[2]/4,dy=-5*local[1]/local[2];
+ assert.ok(dx>.16&&dx<.19);assert.ok(Math.abs(dy)<.05);
+});
+test('core narrows modestly while broad shoulders stay and emitter responds inside the core',()=>{
+ const rad=d=>d*Math.PI/180;
+ // Literal preview.9 envelope is an independent baseline, not a second copy of current source.
+ const smooth=(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t)};
+ const old=(h,v,f)=>(1-smooth(.72,2.8,Math.abs(h)/Math.max(f,.001)))*(1-smooth(.12,.65,Math.abs(v)/Math.max(f,.001)))*smooth(0,.25,f);
+ for(const [,m]of models){
+  for(const [axis,before,after]of [[0,.72,.58],[1,.12,.095]]){
+   const ratio=Math.atan(after)/Math.atan(before);assert.ok(ratio>.78&&ratio<.85);
+   assert.equal(m.stickerSoftbox(axis===0?2.8:0,axis===1?.65:0,1),0);
+  }
+  const width=f=>{let n=0;for(let angle=-89;angle<=89;angle+=.1)if(f(Math.sin(rad(angle)),0,Math.cos(rad(angle)))>.95)n++;return n*.1};
+  const before=width(old),after=width((h,v,f)=>m.stickerReflection(h,v,f,.39,.61,4));
+  assert.ok(after/before>.8&&after/before<.97,`${after}/${before}`);
+  assert.ok(m.stickerReflection(.45,0,1,.39,.61,4)<m.stickerReflection(0,0,1,.39,.61,4));
+  // Existing pattern changes shoulder response, not normals or aurora input.
+  const ratios=[[.2,.3],[.35,.42],[.71,.67]].map(([x,y])=>m.stickerReflection(1.1,.2,1,x,y,4)/m.stickerReflection(0,0,1,x,y,4));
+  assert.ok(Math.max(...ratios)-Math.min(...ratios)>.001);
+  assert.ok(Math.max(...ratios)-Math.min(...ratios)<.03);
+ }
+});
+test('SDR composes linear light and shader transfer functions agree',()=>{
+ const [sdr,hdr]=models.map(([,m])=>m);
+ for(const base of [.1,.6,.9,1.2])for(const h of [.01,.3,.9])for(const silver of [.885,.94,.98]){
+  const expected=(1-h)*decode(Math.min(base,1))+h*decode(silver);
+  assert.ok(Math.abs(decode(sdr.stickerSdr(base,h,silver))-expected)<1e-12);
+  assert.equal(sdr.stickerLinear(Math.min(base,1),h,silver,0),hdr.stickerLinear(Math.min(base,1),h,silver,0));
+  assert.equal(sdr.stickerDecode(base),hdr.stickerDecode(base));
+  assert.equal(sdr.stickerEncode(base),hdr.stickerEncode(base));
+ }
+ for(const [,m]of models)for(const pose of [[62.902,1.094,0],[62.4,45,0],[80,1,90]]){
+  const face=samples(m,{pose,intensity:5});
+  assert.ok(face.every(s=>s.color.every(c=>c<=1)&&s.hdrColor.every(Number.isFinite)));
+ }
+});
+
+// Guard the visible scale, not just the asymptotic 4% emitter bound.
+test('aligned aspect4 emitter varies by three to four percent without losing full-face silver',()=>{
+ for(const [,m]of models){
+  const face=samples(m,{pose:[62.90191,1.093757,0],aspect:4,intensity:5});
+  const values=face.map(s=>s.coverage),spread=Math.max(...values)-Math.min(...values);
+  assert.ok(spread>.03&&spread<.04);assert.ok(average(values)>.975);
+  assert.ok(face.every(s=>chroma(s.color)<.05&&s.color.every(c=>c>.85&&c<1)));
+ }
+});
+
+test('HDR neutral reflection never dims source luminance or exceeds source/emitter energy envelope',()=>{
+ const model=models[1][1];
+ assert.match(wgsl,/let sourceLuma = dot\(sourceLinear, vec3f\(\.2126, \.7152, \.0722\)\)/);
+ for(const intensity of [0,.1,1,5,10])for(const pose of [[0,0,0],[62.902,1.094,0],[62.4,45,0],[80,1,0],[-90,90,180]]){
+  for(const s of samples(model,{pose,intensity},51,17)){
+   const source=s.base.map(c=>decode(model.stickerSource(c,intensity)));
+   const sourceY=luminance(source),actualY=luminance(s.hdrColor.map(decode));
+   const ceiling=Math.max(sourceY,3*decode(s.silver));
+   assert.ok(actualY>=sourceY-1e-10,`${actualY} < ${sourceY}`);
+   assert.ok(actualY<=ceiling+1e-10);
+   if(s.highlight===0)assert.deepEqual(s.hdrColor,s.base.map(c=>model.stickerSource(c,intensity)));
+  }
+ }
+ // Direct full-coverage and partial-coverage inputs, including bright saturated source.
+ for(const rgb of [[.1,.3,.8],[1,1,1],[.9,1.4,1.1],[1.6,.4,.2]])for(const intensity of [0,1,5,10])for(const h of [0,.1,.5,.95,1]){
+  const source=rgb.map(c=>decode(model.stickerSource(c,intensity))),Y=luminance(source);
+  const output=rgb.map(c=>decode(model.stickerHdr(c,intensity,h,.94,Y)));
+  assert.ok(luminance(output)>=Y-1e-10);
+  assert.ok(luminance(output)<=Math.max(Y,3*decode(.94))+1e-10);
+  if(h===1)assert.ok(chroma(output)<1e-10);
  }
 });

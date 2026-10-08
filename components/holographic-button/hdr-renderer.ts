@@ -6,8 +6,8 @@
  *
  * Preview.8 retargets specular lights to portrait pitch, broadens them 20%, and
  * adds controlled Sticker Foil gloss. Original incidence still drives colors.
- * Preview.9 replaces only the foil point gloss with a broad softbox and raises
- * foil motion gain 20%; its neutral textured highlight has independent bounds.
+ * Preview.10 refines only the foil softbox direction/width and linear-light
+ * reflection response; source texture and the preview.9 motion gain stay intact.
  * HDR presentation:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
  *   E = max(M - max(B, 1), 0)        specular-only excess above the SDR shoulder
@@ -189,13 +189,22 @@ fn stickerChannel(channel: f32, x: f32, y: f32, tx: f32, ty: f32, width: f32, he
   if (channel < 1.5) { return (green - .5) * checkerContrast * grainContrast + .5; }
   return (blue - .5) * checkerContrast * grainContrast + .5;
 }
-// Extended softbox reflection: flat center, broad separable angular shoulders.
-// No radial UV spot; finite perspective and the existing rim shape the reflection.
+// Bounded area-emitter approximation, not a spectral or integrated microfacet BRDF.
+// Slightly narrower core; broad shoulders and existing perspective/rim remain.
 fn stickerSoftbox(horizontal: f32, vertical: f32, forward: f32) -> f32 {
   let denominator = max(forward, .001);
-  let side = 1. - smoothstep(.72, 2.8, abs(horizontal) / denominator);
-  let top = 1. - smoothstep(.12, .65, abs(vertical) / denominator);
+  let side = 1. - smoothstep(.58, 2.8, abs(horizontal) / denominator);
+  let top = 1. - smoothstep(.095, .65, abs(vertical) / denominator);
   return side * top * smoothstep(0., .25, forward);
+}
+fn stickerReflection(horizontal: f32, vertical: f32, forward: f32, x: f32, y: f32, aspect: f32) -> f32 {
+  // Reuse the existing attached pattern only: tiny lobe-width variation, no bump.
+  let roughness = 1. + .02 * (stickerDiamond(x, y, aspect) - .5) + .02 * (stickerNoise(x * 100., y * 100.) - .5);
+  let h = horizontal / max(forward, .001);
+  let v = vertical / max(forward, .001);
+  // Smooth emitter radiance variation removes the motionless flat white plateau.
+  let emitter = 1. - .04 * (1. - 1. / (1. + 4. * (h / .58) * (h / .58) + 4. * (v / .095) * (v / .095)));
+  return stickerSoftbox(horizontal / roughness, vertical / roughness, forward) * emitter;
 }
 fn stickerHighlight(coverage: f32, intensity: f32) -> f32 {
   return coverage * max(intensity, 0.) / (.35 + max(intensity, 0.));
@@ -203,15 +212,36 @@ fn stickerHighlight(coverage: f32, intensity: f32) -> f32 {
 fn stickerSilver(x: f32, y: f32, aspect: f32) -> f32 {
   return .98 - .07 * stickerDiamond(x, y, aspect) - .025 * stickerNoise(x * 100., y * 100.);
 }
-fn stickerSdr(base: f32, highlight: f32, silver: f32) -> f32 {
-  return mix(clamp(base, 0., 1.), silver, highlight);
+fn stickerDecode(c: f32) -> f32 {
+  if (c <= .04045) { return c / 12.92; }
+  return pow((c + .055) / 1.055, 2.4);
 }
-// Source aurora radiance stays unchanged away from the softbox. At alignment,
-// attenuate chromatic excess and lift the same neutral texture into HDR headroom.
-fn stickerHdr(base: f32, intensity: f32, highlight: f32, silver: f32) -> f32 {
-  let sdr = stickerSdr(base, highlight, silver);
+fn stickerEncode(c: f32) -> f32 {
+  if (c <= .0031308) { return c * 12.92; }
+  return 1.055 * pow(c, 1. / 2.4) - .055;
+}
+// Both canvases receive encoded values; compose reflected light in linear space.
+fn stickerLinear(base: f32, highlight: f32, silver: f32, headroom: f32) -> f32 {
+  return mix(stickerDecode(base), stickerDecode(silver) * (1. + headroom), highlight);
+}
+fn stickerSdr(base: f32, highlight: f32, silver: f32) -> f32 {
+  if (highlight <= 0.) { return clamp(base, 0., 1.); }
+  return stickerEncode(stickerLinear(clamp(base, 0., 1.), highlight, silver, 0.));
+}
+// Keep source energy while removing chroma under the neutral emitter. This is an
+// artistic continuity guard, not a claim that diffraction orders conserve brightness.
+fn stickerSource(base: f32, intensity: f32) -> f32 {
   let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
-  return sdr + max(base - 1., 0.) * strength * (1. - highlight) * (1. - highlight) + .70 * highlight * silver;
+  return clamp(base, 0., 1.) + max(base - 1., 0.) * strength;
+}
+fn stickerHdr(base: f32, intensity: f32, highlight: f32, silver: f32, sourceLuma: f32) -> f32 {
+  let source = stickerSource(base, intensity);
+  if (highlight <= 0.) { return source; }
+  let neutral = max(3. * stickerDecode(silver), sourceLuma);
+  // Extra neutralization only near alignment; preserve the colored shoulders.
+  let desaturation = highlight + (1. - highlight) * pow(highlight, 4.);
+  let achromatic = mix(stickerDecode(source), sourceLuma, desaturation);
+  return stickerEncode(achromatic + (neutral - sourceLuma) * highlight);
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -246,14 +276,18 @@ fn stickerHdr(base: f32, intensity: f32, highlight: f32, silver: f32) -> f32 {
     let sn = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y, 1.)), 0.)).xyz);
     let sv = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
     let sr = reflect(-sv, sn);
-    let coverage = stickerSoftbox(dot(sr, vec3f(.990830168, -.135113205, 0.)),
+    let coverage = stickerReflection(dot(sr, vec3f(.997884910, -.011350451, -.064006826)),
                                   dot(sr, vec3f(.062139647, .455690748, .887966557)),
-                                  dot(sr, vec3f(-.119976007, -.879824053, .459908028)));
+                                  dot(sr, vec3f(.019088498, -.890065790, .455432235)), stickerUv.x, stickerUv.y, a);
     let highlight = stickerHighlight(coverage, specularIntensity);
     let silver = stickerSilver(stickerUv.x, stickerUv.y, a);
-    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, highlight, silver),
-                            stickerHdr(stickerBase.g, specularIntensity, highlight, silver),
-                            stickerHdr(stickerBase.b, specularIntensity, highlight, silver));
+    let sourceLinear = vec3f(stickerDecode(stickerSource(stickerBase.r, specularIntensity)),
+                             stickerDecode(stickerSource(stickerBase.g, specularIntensity)),
+                             stickerDecode(stickerSource(stickerBase.b, specularIntensity)));
+    let sourceLuma = dot(sourceLinear, vec3f(.2126, .7152, .0722));
+    let stickerRgb = vec3f(stickerHdr(stickerBase.r, specularIntensity, highlight, silver, sourceLuma),
+                            stickerHdr(stickerBase.g, specularIntensity, highlight, silver, sourceLuma),
+                            stickerHdr(stickerBase.b, specularIntensity, highlight, silver, sourceLuma));
     return vec4f(stickerRgb * al, al);
   }
   let grain = noise(uv * vec2f(720., 115.));

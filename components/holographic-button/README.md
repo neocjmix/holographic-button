@@ -1,4 +1,4 @@
-> v1.0.0-preview.9: isolated HDR preview, not published to npm. Sticker Foil retains its accepted diffraction texture, increases aurora movement sensitivity slightly and adds a separate broad silver-white reflection. The demo starts at strength 5. Existing rim, other material textures and interaction behavior are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
+> v1.0.0-preview.10: isolated HDR preview, not published to npm. Sticker Foil retains its accepted diffraction texture and strength-5 preview. Its broad silver reflection now has a slightly narrower, right-shifted angular response, linear-light composition and subtle texture-linked softness. No glow is added. Existing rim, other material textures and interaction behavior are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
 
 # @neocjmix/holographic-button
 
