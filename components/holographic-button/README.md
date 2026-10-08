@@ -1,4 +1,4 @@
-> v1.0.0-preview.11: isolated HDR preview, not published to npm. Sticker Foil now couples rainbow color and reflected brightness instead of overlaying a separate silver-white highlight. The accepted texture and strength-5 demo are retained. Existing rim, other materials and native interaction behavior remain preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
+> v1.0.0-preview.12: isolated HDR preview, not published to npm. Sticker Foil adds richer colored HDR and slowly recovering illumination to its coupled rainbow reflection. All five materials share a fuller rounded inset rim. The source texture, native interaction and original four color models are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
 
 # @neocjmix/holographic-button
 

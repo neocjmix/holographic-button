@@ -33,7 +33,7 @@ export function scalarFunction(shader,signature,parameters,bindings={}) {
  return new Function(...Object.keys(bound),...parameters,body).bind(null,...Object.values(bound));
 }
 const functionParameters={
- stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
+ stickerChroma:['channel','peak'],stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
  stickerPhase:['position','transform'],stickerMotion:['axis'],
  stickerChannel:['channel','x','y','tx','ty','width','height','base'],
  stickerSoftbox:['horizontal','vertical','forward'],stickerReflection:['horizontal','vertical','forward','x','y','aspect'],stickerDecode:['c'],stickerEncode:['c'],stickerLinear:['base','highlight','substrate','headroom'],stickerHighlight:['coverage','intensity'],stickerSubstrate:['x','y','aspect'],stickerSdr:['base','highlight','substrate','peak'],
@@ -73,13 +73,14 @@ export function sourceModel(shader,language) {
    const reflected=n.map((x,i)=>2*dot(n,v)*x-v[i]);
    const opticalFrame=lightBasis.map(axis=>dot(reflected,axis));
    const opticalTilt=opticalFrame.slice(0,2).map(model.stickerMotion);
-   const base=[0,1,2].map(c=>model.stickerChannel(c,...uv,...opticalTilt,width,height,1));
+   const sourceTexture=[0,1,2].map(c=>model.stickerChannel(c,...uv,...opticalTilt,width,height,1));
+   const base=sourceTexture.map(c=>model.stickerChroma(c,Math.max(...sourceTexture)));
    const coverage=model.stickerReflection(...opticalFrame,...uv,aspect);
    const highlight=model.stickerHighlight(coverage,intensity),substrate=model.stickerSubstrate(...uv,aspect);
    const color=base.map(c=>model.stickerSdr(c,highlight,substrate,Math.max(...base)));
    const hdrColor=model.stickerHdr?base.map(c=>model.stickerHdr(c,intensity,highlight,substrate)):color;
    const edgeDistance=distance(uv,aspect),alpha=1-smoothstep(-1.5/height,1.5/height,edgeDistance);
-   return {base,color,hdrColor,coverage,highlight,substrate,glare,tilt,rawBase,opticalTilt,opticalFrame,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
+   return {sourceTexture,base,color,hdrColor,coverage,highlight,substrate,glare,tilt,rawBase,opticalTilt,opticalFrame,pattern:model.stickerDiamond(...uv,aspect),alpha:alpha<.01?0:alpha};
  };
  return model;
 }

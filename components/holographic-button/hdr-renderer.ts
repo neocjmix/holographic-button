@@ -9,6 +9,8 @@
  * Preview.11 couples foil phase and colored radiance to one reflected-light frame.
  * The source curve/pattern and 20% softened gain remain; gravity-only phase and
  * the separate white overlay are removed. This is a stylized optical response.
+ * Preview.12 deepens post-texture chroma and colored HDR headroom, widens the
+ * shared C2 rim, and uses a shared foil-only adaptive light-frame correction.
  * SDR uses an RGB-wide shoulder; HDR extends the same colored reflection.
  * HDR presentation:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
@@ -79,19 +81,20 @@ fn ggxAniso(n: vec3f, h: vec3f, t0: vec3f, r: f32, a: f32, rot: f32) -> f32 {
   let q = x * x + y * y + z * z;
   return 1. / (3.14159 * ax * ay * q * q);
 }
-// A tiny positive bead with C2 joins to the flat outer edge and central face.
+// A wider, taller positive bead with C2 joins to flat outer land and center.
 // Its analytic inward derivative controls the normal; height adds no brightness.
 fn rimProfile(inward: f32) -> vec2f {
-  let t = (inward - .018) / .038;
+  let t = (inward - .018) / .064;
   if (t <= 0. || t >= 1.) { return vec2f(0.); }
   let q = 1. - t;
-  return vec2f(64. * .00055 * t * t * t * q * q * q,
-               (192. * .00055 / .038) * t * t * q * q * (1. - 2. * t));
+  return vec2f(64. * .0016 * t * t * t * q * q * q,
+               (192. * .0016 / .064) * t * t * q * q * (1. - 2. * t));
 }
 // Virtual viewer at (0,0,5) in device coordinates, five face-height units away.
 // This artistic optical perspective restores a reflected color sweep on a flat
 // face without changing its normal. At 4:1 aspect the full horizontal FOV is 44deg.
-// The view and normal rotate together into the unchanged world-space light rig.
+// View and normal share a frame: raw world attitude for the original four;
+// the foil renderer alone supplies its slowly adapting effective light frame.
 fn viewDirection(p: vec2f) -> vec3f {
   return normalize(vec3f(-p.x, -p.y, 5.));
 }
@@ -217,6 +220,10 @@ fn stickerEncode(c: f32) -> f32 {
   return 1.055 * pow(c, 1. / 2.4) - .055;
 }
 // Both canvases receive encoded values; compose reflected light in linear space.
+// Peak-preserving chroma applied after the untouched source texture.
+fn stickerChroma(channel: f32, peak: f32) -> f32 {
+  return peak * pow(max(channel, 0.) / max(peak, .00001), 3.2);
+}
 fn stickerLinear(base: f32, highlight: f32, substrate: f32, headroom: f32) -> f32 {
   // Dim neutral environment plus one colored reflection; no white highlight layer.
   return .055 * stickerDecode(substrate) + stickerDecode(max(base, 0.)) * highlight * (.82 + headroom);
@@ -233,7 +240,7 @@ fn stickerSdr(base: f32, highlight: f32, substrate: f32, peak: f32) -> f32 {
 
 fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 {
   let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
-  return stickerEncode(stickerLinear(base, highlight, substrate, .5 * strength));
+  return stickerEncode(stickerLinear(base, highlight, substrate, .9 * strength));
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -263,9 +270,11 @@ fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 
     let sr = reflect(-sv, sn);
     let opticalX = stickerMotion(dot(sr, vec3f(.997884910, -.011350451, -.064006826)));
     let opticalY = stickerMotion(dot(sr, vec3f(.062139647, .455690748, .887966557)));
-    let stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
+    var stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
                              stickerChannel(1., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
                              stickerChannel(2., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput));
+    let carrierPeak = max(stickerBase.r, max(stickerBase.g, stickerBase.b));
+    stickerBase = vec3f(stickerChroma(stickerBase.r, carrierPeak), stickerChroma(stickerBase.g, carrierPeak), stickerChroma(stickerBase.b, carrierPeak));
     let coverage = stickerReflection(dot(sr, vec3f(.997884910, -.011350451, -.064006826)),
                                   dot(sr, vec3f(.062139647, .455690748, .887966557)),
                                   dot(sr, vec3f(.019088498, -.890065790, .455432235)), stickerUv.x, stickerUv.y, a);
@@ -354,7 +363,7 @@ fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 
 `;
 
 export type OriginalHdrOptions = {
-  matrix: () => Float32Array;
+  matrix: (now: number) => Float32Array;
   method: number;
   material: readonly number[];
   specular: () => number;
@@ -470,7 +479,7 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
     if (stopped) throw new Error(failureMessage);
     const values = new Float32Array(24);
     values.set(options.material.slice(0, 4), 16);
-    const frame = () => {
+    const frame = (now: number = performance.now()) => {
       if (stopped) return;
       try {
         if (!document.hidden) {
@@ -480,7 +489,7 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
           const height = Math.max(1, Math.round(rect.height * dpr));
           if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
           if (options.method === 4) values.set([Math.max(rect.width, 1), Math.max(rect.height, 1), 0, 0], 16);
-          const m = options.matrix();
+          const m = options.matrix(now);
           values.set([m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1]);
           const intensity = options.specular();
           values.set([width, height, options.method, Number.isFinite(intensity) ? Math.max(0, intensity) : 0], 20);

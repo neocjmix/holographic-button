@@ -12,7 +12,7 @@ for(const [language,m] of models){
    const expected=upstream({uv,transform,width,height,sourceBase,intensity,checkerScale:12.5});
    assert.ok(delta(actual.rawBase,expected.color)<1e-8);
    const optical=upstream({uv,transform:actual.opticalTilt,width,height,checkerScale:12.5});
-   assert.ok(delta(actual.base,optical.color)<1e-8);
+   assert.ok(delta(actual.sourceTexture,optical.color)<1e-8);
   }
  });
  test(`${language}: source phase density, checker and +20% softened gain remain`,()=>{
@@ -114,4 +114,30 @@ test('SDR shoulder preserves whole-RGB chromaticity without channel clipping',()
 test('upper HDR intensity increases colored reflection substantially',()=>{
  const m=models[1][1],means=[1,5,10].map(intensity=>average(samples(m,{pose:[62.9,1.1,0],intensity},41,13).map(s=>luminance(s.hdrColor.map(decode)))));
  assert.ok(means[1]>means[0]*1.8);assert.ok(means[2]>means[1]*1.3);
+});
+
+test('post-texture chroma increases saturation, preserves the spectral peak and leaves neutral input neutral',()=>{
+ for(const [,m]of models){
+  for(const rgb of [[.7,.9,1.2],[1.3,.8,.6],[.5,.6,.4],[1,1,1]]){
+   const peak=Math.max(...rgb),enhanced=rgb.map(c=>m.stickerChroma(c,peak));
+   assert.equal(Math.max(...enhanced),peak);
+   assert.ok(enhanced.every(c=>Number.isFinite(c)&&c>=0&&c<=peak));
+   if(chroma(rgb)>0)assert.ok(chroma(enhanced)>chroma(rgb)*1.5);
+   else assert.deepEqual(enhanced,rgb);
+  }
+  const ss=samples(m,{pose:[62.9,1.1,0],intensity:5},121,33);
+  const original=ss.map(s=>s.sourceTexture.map(c=>m.stickerSdr(c,s.highlight,s.substrate,Math.max(...s.sourceTexture))));
+  assert.ok(average(ss.map(s=>chroma(s.color)))>average(original.map(chroma))*1.9);
+  assert.ok(ss.every(s=>s.color.every(c=>Number.isFinite(c)&&c>=0&&c<1)));
+  assert.ok(ss.filter(s=>chroma(s.color)<.1).length<original.filter(c=>chroma(c)<.1).length);
+ }
+});
+test('strength-five HDR peak exceeds preview11 while remaining carried by saturated spectral color',()=>{
+ const m=models[1][1],ss=samples(m,{pose:[62.9,1.1,0],intensity:5},121,33);
+ const peak12=Math.max(...ss.flatMap(s=>s.hdrColor.map(decode)));
+ // Preview11 used the same source peak and .5 * strength headroom.
+ const peak11=Math.max(...ss.flatMap(s=>s.sourceTexture.map(c=>m.stickerLinear(c,s.highlight,s.substrate,.5*(11*5/(10+5))))));
+ assert.ok(peak12>peak11*1.5);
+ const bright=ss.filter(s=>Math.max(...s.hdrColor.map(decode))>peak12*.9);
+ assert.ok(bright.length>0);assert.ok(average(bright.map(s=>chroma(s.hdrColor)/Math.max(...s.hdrColor)))>.4);
 });
