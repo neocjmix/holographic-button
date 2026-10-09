@@ -29,7 +29,7 @@ test('demo always renders one satin shader with numeric optical options',async()
  assert.match(demo,/min="0" max="10" step="0.05"/);
  assert.doesNotMatch(demo,/setVariant|variant=\{/);
  assert.equal([...demo.matchAll(/variant="satin-mirror"/g)].length,4,'three rendered examples plus copied React code');
- assert.match(demo,/opticalOptions=\{DEFAULT_OPTICAL_OPTIONS\}/);
+ assert.match(demo,/opticalOptions=\{HERO_OPTICAL_OPTIONS\}/);
  assert.match(demo,/opticalOptions=\{opticalOptions\}/);
  assert.match(demo,/opticalOptions=\{preset.options\} specular=\{preset.specular\}/);
  assert.match(demo,/ONE SHADER · NUMERIC PRESETS/);
