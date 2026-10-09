@@ -170,8 +170,11 @@ test('rendered demo exposes every control with correct mapping and default value
  assert.ok(html.includes('Custom / 수정됨')===false,'initial state is unmodified');
  assert.ok(html.includes('Satin Mirror로 돌아가기'));
  assert.ok(html.includes('v1.0.0'));
+ assert.match(html,/AI-ASSISTED IMPLEMENTATION/);
+ assert.doesNotMatch(html,/NO HUMAN REVIEW|UNREVIEWED AI OUTPUT|No human has reviewed|not published to npm|프리뷰|preview\.\d/i);
+ assert.equal(html.split('부드러운 회색 거울 반사').length-1,2,'Satin Mirror stable description appears in selector and gallery');
  assert.ok(html.includes('색 코팅이나 회절 강도를 올리면 간격의 차이가 보여요.'));
  assert.ok(html.includes('격자 요철을 올리면 셀 밀도의 차이가 보여요.'));
 });
 
-test('stable demo has honest attribution without preview warnings',async()=>{const source=await readFile('app/page.tsx','utf8');assert.match(source,/AI-ASSISTED IMPLEMENTATION/);assert.match(source,/THIRD_PARTY_NOTICES\.md/);assert.doesNotMatch(source,/preview\.15|UNREVIEWED AI OUTPUT|No human has reviewed|not published to npm/);});
+test('stable demo has honest attribution without preview warnings',async()=>{const source=await readFile('app/page.tsx','utf8');assert.match(source,/AI-ASSISTED IMPLEMENTATION/);assert.match(source,/THIRD_PARTY_NOTICES\.md/);assert.doesNotMatch(source,/preview\.15|UNREVIEWED AI OUTPUT|NO HUMAN REVIEW|No human has reviewed|not published to npm|프리뷰/);});

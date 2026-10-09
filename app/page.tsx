@@ -6,6 +6,7 @@ import {toSliderValue,fromSliderValue,formatOpticalValue,matchesPreset} from "./
 
 const PACKAGE="@neocjmix/holographic-button";
 const SATIN_PRESET=OPTICAL_PRESETS.find(preset=>preset.id==="satin-mirror")!;
+const DEMO_PRESET_NOTES:Partial<Record<OpticalPresetId,string>>={"satin-mirror":"부드러운 회색 거울 반사"};
 const controlGroups=[
  {id:"surface",label:"표면과 반사",note:"반사의 선명함, 방향성과 표면의 굴곡을 조절해요."},
  {id:"pattern",label:"무늬와 미세 구조",note:"회절과 미세한 요철로 같은 표면의 인상을 바꿔요."},
@@ -68,7 +69,7 @@ export default function Home(){
     <h1>A button that<br/><i>catches the light.</i></h1>
     <p className="lede">A physically directed holographic CTA for React. Tilt the phone—or move the pointer—and the material responds to a fixed world light in real time.</p>
     <div className="hero-actions"><a className="primary-link" href="#install">Get started <span>↓</span></a><a className="text-link" href="#playground">Tune the props</a></div>
-    <div className="hero-facts"><span>MIT LICENSE</span><span>ONE SHADER · NUMERIC PRESETS</span><span>REACT 18+</span><span>NO HUMAN REVIEW</span></div>
+    <div className="hero-facts"><span>MIT LICENSE</span><span>ONE SHADER · NUMERIC PRESETS</span><span>REACT 18+</span></div>
    </div>
    <div className="hero-object">
     <p>LIVE MATERIAL <span>MOVE YOUR DEVICE</span></p>
@@ -83,7 +84,7 @@ export default function Home(){
     <div className="control-panel">
      <div className="control-group">
       <span className="control-label">Optical preset · 하나의 셰이더</span>
-      <div className="segment-grid preset-grid" aria-label="Optical presets">{OPTICAL_PRESETS.map(preset=><button type="button" key={preset.id} aria-pressed={presetId===preset.id&&!modified} className={presetId===preset.id&&!modified?"selected":""} onClick={()=>applyPreset(preset.id)}><b>{preset.label}</b><small>{preset.note}</small></button>)}</div>
+      <div className="segment-grid preset-grid" aria-label="Optical presets">{OPTICAL_PRESETS.map(preset=><button type="button" key={preset.id} aria-pressed={presetId===preset.id&&!modified} className={presetId===preset.id&&!modified?"selected":""} onClick={()=>applyPreset(preset.id)}><b>{preset.label}</b><small>{DEMO_PRESET_NOTES[preset.id]??preset.note}</small></button>)}</div>
       <p className="preset-status" aria-live="polite"><b>{modified?"Custom / 수정됨":currentPreset.label}</b><span>{modified?currentPreset.label+"에서 조절한 값이에요.":"프리셋은 아래 모든 수치의 시작점이에요."}</span></p>
       <div className="preset-actions"><button className="copy-button preset-reset" type="button" onClick={()=>applyPreset(presetId)} disabled={!modified}>선택 프리셋 복원</button><button className="copy-button satin-reset" type="button" onClick={resetSatinMirror}>Satin Mirror로 돌아가기</button></div>
      </div>
@@ -143,7 +144,7 @@ export default function Home(){
 
   <section className="materials section-frame" id="materials">
    <div className="section-intro compact"><p className="section-index">03 / PRESETS</p><h2>One surface.<br/>Many starting points.</h2><p>Every sample uses the same shader with a different set of numbers. These fixed examples stay unchanged while you tune the playground. Satin Mirror preserves the accepted neutral baseline.</p></div>
-   <div className="material-grid">{OPTICAL_PRESETS.map((preset,index)=><article key={preset.id}><div><span>{"0"+(index+1)}</span><h3>{preset.label}</h3><p>{preset.note}</p></div><HolographicButton motion={motion} variant="satin-mirror" opticalOptions={preset.options} specular={preset.specular} height={112} onClick={()=>setActivated(v=>v+1)}>{preset.label.toUpperCase()}</HolographicButton></article>)}</div>
+   <div className="material-grid">{OPTICAL_PRESETS.map((preset,index)=><article key={preset.id}><div><span>{"0"+(index+1)}</span><h3>{preset.label}</h3><p>{DEMO_PRESET_NOTES[preset.id]??preset.note}</p></div><HolographicButton motion={motion} variant="satin-mirror" opticalOptions={preset.options} specular={preset.specular} height={112} onClick={()=>setActivated(v=>v+1)}>{preset.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
   <section className="api section-frame" id="api">
