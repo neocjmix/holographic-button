@@ -1,17 +1,16 @@
-> v1.0.0-preview.15: isolated HDR preview, not published to npm. One configurable optical shader now supplies Satin Mirror, Card Foil, Grid Prism and Smooth Prism through numeric presets. The accepted neutral default remains intact. See [preview notes](../../preview/v1/README.md) for ranges, limitations and verification.
-
 # @neocjmix/holographic-button
 
-A physically directed holographic WebGL button for React. Its reflective surface responds to device attitude on mobile and pointer movement on desktop while the lights remain fixed in world space.
+A world-lit holographic React button with WebGL fallback and HDR on supported displays. Its reflective surface responds to device attitude on mobile and pointer movement on desktop while the lights remain fixed in world space.
 
 [Live demo](https://neocjmix.github.io/holographic-button/) · [Source](https://github.com/neocjmix/holographic-button) · MIT
 
-> [!WARNING]
-> This implementation and its documentation were generated entirely by AI and have not received human code review. Treat v0.x as experimental, inspect the source, and perform your own security and accessibility review before production use.
+Implementation and documentation were developed with AI assistance under human visual direction. Test rendering, accessibility and performance on the browsers and devices you support; automated checks do not replace a full security or accessibility audit.
 
 ## Features
 
-- Four original optical models, reference-derived Sticker Foil, and a separate Satin Mirror preset.
+- Satin Mirror, Card Foil, Grid Prism and Smooth Prism: four numeric presets of one configurable optical shader.
+- Compatible original material variants and reference-derived Sticker Foil.
+- Extended-range WebGPU rendering on supported HDR displays, with WebGL 1 fallback.
 - World-fixed specular lighting and a smoothly raised inset reflective rim.
 - Device orientation, motion fallback, screen rotation correction, and pointer fallback.
 - A real `<button>` with native events, form props, accessibility attributes, and DOM refs.
@@ -31,6 +30,7 @@ npm install @neocjmix/holographic-button
 
 import {
   HolographicButton,
+  DEFAULT_OPTICAL_OPTIONS,
   useHolographicMotion,
 } from "@neocjmix/holographic-button";
 import "@neocjmix/holographic-button/styles.css";
@@ -43,10 +43,11 @@ export function CTA() {
   return (
     <HolographicButton
       motion={motion}
-      variant="spectral-film"
+      variant="satin-mirror"
+      opticalOptions={DEFAULT_OPTICAL_OPTIONS}
       width="min(100%, 560px)"
       height={148}
-      specular={1}
+      specular={5}
       onClick={() => alert("Activated")}
     >
       ACTIVATE
@@ -54,6 +55,8 @@ export function CTA() {
   );
 }
 ```
+
+This explicitly selects the same neutral Satin Mirror preset and strength as the demo. For compatibility, the component defaults remain `variant="spectral-film"` and `specular={1}` when omitted.
 
 In Next.js App Router, render the hook and button from a Client Component. Import the stylesheet once from that component or your global stylesheet entry.
 
@@ -92,7 +95,7 @@ The internal preset is informed by common PBR material concepts but uses a compa
 
 Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, `sticker-foil`, and `satin-mirror`.
 
-Sticker Foil treats its reference-derived rainbow field and enlarged diamond pattern as colored reflected light. Its color and brightness respond to a common light/view configuration; it no longer overlays a separate silver-white state. The demo starts at strength 5 and retains its 0–10 control. The component API default remains 1. HDR output depends on display headroom and is not a calibrated luminance multiple.
+Sticker Foil treats its reference-derived rainbow field and enlarged diamond pattern as colored reflected light. Its color and brightness respond to a common light/view configuration; it no longer overlays a separate silver-white state. The demo starts with Satin Mirror at strength 5 and offers a 0–10 strength control. The component API default remains 1. HDR output depends on display headroom and is not a calibrated luminance multiple.
 
 ## Motion permission
 
@@ -115,22 +118,15 @@ Modern browsers with WebGL 1 and React 18.2 or newer. Device orientation require
 
 ## Releasing
 
-The `Publish Holographic Button` GitHub Actions workflow runs when a SemVer tag matching `v*.*.*` is pushed. It requires the tag version to match `package.json`, verifies that the tagged commit belongs to `main`, installs locked dependencies, typechecks, builds, inspects the package tarball, publishes to npm, and then creates a GitHub Release with generated notes.
+The `Publish Holographic Button` GitHub Actions workflow runs when a SemVer tag matching `v*.*.*` is pushed. The tag must match this package's version and point to a commit contained in `main`. The workflow installs locked dependencies, runs the complete repository checks, publishes with npm Trusted Publishing and provenance, and creates a GitHub Release if one does not already exist.
 
-For a normal release, run from this package directory with a clean worktree:
+Prepare releases from the repository root: update the package version, repository version, workspace dependency and both lockfiles together; update the changelog; run `npm ci` and `npm run check`; commit the verified changes and land them on `main`. Then create and push `v<package-version>` at that exact commit. Do not tag an unverified or unmerged commit. Check the workflow and npm before announcing the release.
 
-```bash
-npm version patch # or: minor / major
-git push origin main --follow-tags
-```
-
-Do not create the GitHub Release manually; the workflow creates it only after npm publication succeeds. Re-running a tag whose npm version or GitHub Release already exists is safe because those operations are skipped.
-
-Configure npm Trusted Publishing for GitHub Actions with owner `neocjmix`, repository `holographic-button`, and workflow filename `publish-holographic-button.yml`. Releases use short-lived OIDC credentials and automatic provenance; no long-lived npm token is stored in GitHub.
+Re-running an existing tag skips versions already on npm and GitHub Releases already present. npm Trusted Publishing is configured for owner `neocjmix`, repository `holographic-button`, and workflow filename `publish-holographic-button.yml`; publication uses short-lived OIDC credentials without a long-lived npm token in GitHub.
 
 ## Credits
 
-Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.com/luciascarlet/status/1930614317541474598). Shader, interaction model, and React implementation by ChanJin Park.
+Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.com/luciascarlet/status/1930614317541474598). Project and visual direction by ChanJin Park, with AI-assisted shader, interaction and React implementation. The retained Sticker Foil adaptation includes [bpisano/Sticker MIT attribution](./THIRD_PARTY_NOTICES.md).
 
 ## License
 
@@ -158,8 +154,8 @@ const foil = OPTICAL_PRESETS.find(preset => preset.id === "card-foil")!;
 
 `DEFAULT_OPTICAL_OPTIONS`, `OPTICAL_OPTION_LIMITS`, `OPTICAL_PRESETS`, `OPTICAL_CONTROLS`, `normalizeOpticalOptions`, and their types are exported. Presets are immutable complete starting values; copy and edit them freely. Controls use refs and uniform updates without replacing GPU resources or restarting recovery. Omitted, non-number and non-finite fields use defaults; finite values clamp to the exported bounds.
 
-`MirrorOptions`, `DEFAULT_MIRROR_OPTIONS`, `MIRROR_OPTION_LIMITS` and the original variant names remain compatible. Legacy `mirrorOptions` keeps its original nine-field shape and accepts the newly expanded ranges. It is merged before `opticalOptions`; the latter takes precedence per field. The package default variant remains `spectral-film`; the preview explicitly selects `satin-mirror`.
+`MirrorOptions`, `DEFAULT_MIRROR_OPTIONS`, `MIRROR_OPTION_LIMITS` and the original variant names remain compatible. Legacy `mirrorOptions` keeps its original nine-field shape and accepts the newly expanded ranges. It is merged before `opticalOptions`; the latter takes precedence per field. The package default variant remains `spectral-film`; the demo explicitly selects `satin-mirror`.
 
 This is a stylized reflective material, not measured card-foil optics or a transmitting glass model. Thin-film-like color modulates the same reflected room radiance; wavelength/order diffraction reuses that room. No artwork, card texture, or external asset is fetched. Color coating and diffraction share `rainbowSpacing`: smaller values increase angular coating cycles, while propagating diffraction orders follow wavelength/pitch geometry. At sufficiently small pitch, non-propagating order energy remains in the neutral reflection. The grating angle also rotates anisotropic blur and the attached cell grid.
 
-The unchanged default has zero diffraction, zero coating and zero facets. Its original room, blur, defects and rounded ridge helpers are retained. SDR uses an RGB-wide shoulder, equal to the original scalar curve for gray; HDR encodes the same linear RGB directly. Both paths keep geometric premultiplied alpha. See the [range table and verification limits](../../preview/v1/README.md#optical-ranges) before relying on extreme settings or mobile performance.
+The unchanged default has zero diffraction, zero coating and zero facets. Its original room, blur, defects and rounded ridge helpers are retained. SDR uses an RGB-wide shoulder, equal to the original scalar curve for gray; HDR encodes the same linear RGB directly. Both paths keep geometric premultiplied alpha. See the [range table and verification limits](./OPTICAL_TUNING.md#optical-ranges) before relying on extreme settings or mobile performance.

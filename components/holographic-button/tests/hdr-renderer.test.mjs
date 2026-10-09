@@ -10,16 +10,20 @@ const componentSource = await readFile(new URL('../index.tsx', import.meta.url),
 const wgsl = source.split('/* wgsl */ `')[1].split('`;')[0];
 const glsl = JSON.parse(componentSource.match(/const FS=(\[[\s\S]*?\])\.join\("\\n"\);/)[1]).join('\n');
 const hash = s => createHash('sha256').update(s).digest('hex');
-const {code} = await transform(source, {loader: 'ts', format: 'esm'});
+// Inspect the private subscriber count only in this test module. The published
+// renderer API stays unchanged; all lifecycle operations execute real source.
+const {code} = await transform(source + '\nexport const countLossListeners = async () => (await sharedDevice)?.listeners.size ?? 0;', {loader: 'ts', format: 'esm'});
 let moduleNumber = 0;
 const load = () => import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}#${++moduleNumber}`);
 const identity = new Float32Array([1,0,0,0,1,0,0,0,1]);
 
 function harness({hdr=true, configurationError=false, shaderError=false, validationError=false, alreadyLost=false}={}) {
-  let depth=0, maximumDepth=0, destroyed=0, unconfigured=0, adapterRequests=0;
+  let depth=0, maximumDepth=0, destroyed=0, unconfigured=0, adapterRequests=0, lossSubscriptions=0;
   let nextFrame=0, resolveLost, lastConfiguration, lastValues, lastPass, drawn=0;
   const frames=new Map();
   const lost=alreadyLost ? Promise.resolve({reason:'destroyed'}) : new Promise(resolve=>{resolveLost=resolve});
+  const subscribe=lost.then.bind(lost);
+  lost.then=(...args)=>{lossSubscriptions++;return subscribe(...args)};
   const device={
     pushErrorScope(){maximumDepth=Math.max(maximumDepth,++depth)},
     async popErrorScope(){depth--;return validationError?{message:'validation failed'}:null},
@@ -41,7 +45,7 @@ function harness({hdr=true, configurationError=false, shaderError=false, validat
     getConfiguration(){return lastConfiguration},
     unconfigure(){unconfigured++},getCurrentTexture(){return{createView(){return{}}}},
   }}});
-  return {makeCanvas,device,lose(){resolveLost({reason:'destroyed'})},frame(){const [id,callback]=frames.entries().next().value;frames.delete(id);callback()},get state(){return{depth,maximumDepth,destroyed,unconfigured,adapterRequests,lastConfiguration,lastValues,lastPass,drawn,frames:frames.size}}};
+  return {makeCanvas,device,lose(){resolveLost({reason:'destroyed'})},frame(){const [id,callback]=frames.entries().next().value;frames.delete(id);callback()},get state(){return{depth,maximumDepth,destroyed,unconfigured,adapterRequests,lossSubscriptions,lastConfiguration,lastValues,lastPass,drawn,frames:frames.size}}};
 }
 function options(overrides={}){return{matrix:()=>identity,method:0,material:[.08,.72,.11,.55],specular:()=>1,error(){},...overrides}}
 
@@ -83,6 +87,42 @@ test('device loss stops rendering, releases resources and reports only once',asy
  const stop=await createOriginalHdrRenderer(h.makeCanvas(),options({error:e=>errors.push(e)}));
  h.lose();await Promise.resolve();await Promise.resolve();stop();
  assert.equal(errors.length,1);assert.match(errors[0],/device lost/);assert.equal(h.state.destroyed,1);assert.equal(h.state.unconfigured,1);assert.equal(h.state.frames,0);
+});
+test('repeated stopped renderers release device listeners without adding promise callbacks',async()=>{
+ const h=harness();const {createOriginalHdrRenderer,countLossListeners}=await load();const errors=[];
+ for(let i=0;i<20;i++){
+  const stop=await createOriginalHdrRenderer(h.makeCanvas(),options({error:e=>errors.push(e)}));
+  assert.equal(await countLossListeners(),1);stop();stop();
+  assert.equal(await countLossListeners(),0);
+ }
+ assert.equal(h.state.lossSubscriptions,1);assert.equal(h.state.adapterRequests,1);
+ assert.equal(h.state.destroyed,20);assert.equal(h.state.unconfigured,20);assert.equal(h.state.frames,0);
+ const active=await createOriginalHdrRenderer(h.makeCanvas(),options({error:e=>errors.push(e)}));
+ assert.equal(await countLossListeners(),1);h.lose();await Promise.resolve();await Promise.resolve();
+ assert.equal(errors.length,1);assert.equal(h.state.lossSubscriptions,1);assert.equal(h.state.destroyed,21);
+ assert.equal(await countLossListeners(),0);active();
+});
+test('failed initialization also removes its device listener',async()=>{
+ const h=harness({validationError:true});const {createOriginalHdrRenderer,countLossListeners}=await load();
+ for(let i=0;i<5;i++){
+  await assert.rejects(createOriginalHdrRenderer(h.makeCanvas(),options()),/validation failed/);
+  assert.equal(await countLossListeners(),0);
+ }
+ assert.equal(h.state.lossSubscriptions,1);assert.equal(h.state.destroyed,5);assert.equal(h.state.frames,0);
+});
+test('device loss notifies every active renderer and a new mount requests a fresh device',async()=>{
+ const h=harness();const {createOriginalHdrRenderer,countLossListeners}=await load();let notifications=0;
+ const first=await createOriginalHdrRenderer(h.makeCanvas(),options({error(){notifications++;throw Error('callback failed')}}));
+ const second=await createOriginalHdrRenderer(h.makeCanvas(),options({error(){notifications++}}));
+ assert.equal(await countLossListeners(),2);
+ h.lose();await Promise.resolve();await Promise.resolve();
+ assert.equal(notifications,2);assert.equal(h.state.destroyed,2);assert.equal(h.state.frames,0);
+ first();second();
+ const replacement=harness();
+ const stop=await createOriginalHdrRenderer(replacement.makeCanvas(),options());
+ assert.equal(replacement.state.adapterRequests,1);assert.equal(replacement.state.lossSubscriptions,1);
+ assert.equal(await countLossListeners(),1);replacement.frame();assert.equal(replacement.state.drawn,1);
+ stop();assert.equal(await countLossListeners(),0);
 });
 test('loss during initialization rejects instead of returning an active renderer',async()=>{
  const h=harness({alreadyLost:true});const {createOriginalHdrRenderer}=await load();const errors=[];

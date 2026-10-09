@@ -63,17 +63,13 @@ jobs:
           echo "name=$package_name" >> "$GITHUB_OUTPUT"
           echo "version=$package_version" >> "$GITHUB_OUTPUT"
 
-      - name: Install locked dependencies
+      - name: Install locked repository dependencies
+        working-directory: ${{ github.workspace }}
         run: npm ci --ignore-scripts
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
-      - name: Inspect package contents
-        run: npm pack --dry-run --ignore-scripts
+      - name: Verify tests, types, package and demo
+        working-directory: ${{ github.workspace }}
+        run: npm run check
 
       - name: Publish package
         id: publish

@@ -1,32 +1,12 @@
 /**
- * WebGPU presentation matching the WebGL material in this preview.
- * The four texture branches, noise and motion retain
- * the original design. The shared macro normal, inset ridge and metal reflection
- * are deliberately refined in preview.4, identically in GLSL and WGSL.
+ * WebGPU presentation matching the WebGL material and optical controls.
+ * Motion, surface geometry, texture formulas and colors share the same model.
  *
- * Preview.8 retargets specular lights to portrait pitch, broadens them 20%, and
- * adds controlled Sticker Foil gloss. Original incidence still drives colors.
- * Preview.11 couples foil phase and colored radiance to one reflected-light frame.
- * The source curve/pattern and 20% softened gain remain; gravity-only phase and
- * the separate white overlay are removed. This is a stylized optical response.
- * Preview.13 restores preview11 foil color, doubles the preview12 C2 rim, and
- * adds a neutral satin mirror with an original room map and anisotropic filtering.
- * Foil and mirror share the preview12 adaptive light frame.
- * SDR uses an RGB-wide shoulder; HDR extends the same colored reflection.
- * HDR presentation:
- *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
- *   E = max(M - max(B, 1), 0)        specular-only excess above the SDR shoulder
- *   H = decodeSRGB(C) + K E/(K + E), K=3 at intensity<=1, 7.5 at10
- *   Default headroom is unchanged; high slider values deliberately grow it.
- *   output = encodeSRGB(H) * alpha
- * B is the SAME material evaluated with specular intensity zero. Thus no lift
- * is added to the base material, or at intensity zero, and M <= 1 is unchanged.
- * This retains the original artistic curve; removing it would alter all colors.
- * rgba16float canvas values with colorSpace:'srgb' are transfer-encoded, hence
- * the explicit decode/add/encode, rather than encoding the original C twice.
- * Canvas alphaMode:'premultiplied' requires the final encoded RGB times alpha.
- * Source: https://www.w3.org/TR/webgpu/#canvas-color-space
- * The browser/display still decides the actually available HDR headroom.
+ * HDR adds specular-only excess above the SDR shoulder in linear light, keeping
+ * the zero-specular base unchanged. rgba16float with colorSpace: "srgb" uses
+ * transfer-encoded output, premultiplied by geometric coverage alpha.
+ * The browser and display determine the available HDR headroom.
+ * https://www.w3.org/TR/webgpu/#canvas-color-space
  */
 
 /** Legacy mirror controls. Relative values of 1 preserve preview13. */
@@ -117,7 +97,7 @@ export const OPTICAL_CONTROLS: readonly OpticalControl[] = Object.freeze([
   control("recoverySeconds", "각도 회복 시간", "motion", .01, "작을수록 빠르게 빛을 되찾아. 기기 움직임은 즉시 반영돼", {scale:"log",unit:"s"}),
 ]);
 
-export const originalHdrShader = /* wgsl */ `
+export const originalHdrShader: string = /* wgsl */ `
 struct Uniforms {
   worldFromDevice: mat4x4f,
   material: vec4f,
@@ -634,6 +614,7 @@ type GpuModule = { getCompilationInfo(): Promise<{ messages: { type: string; mes
 type GpuPipeline = { getBindGroupLayout(index: number): unknown };
 type GpuPass = { setPipeline(pipeline: GpuPipeline): void; setBindGroup(index: number, group: unknown): void; draw(count: number): void; end(): void };
 type GpuEncoder = { beginRenderPass(descriptor: unknown): GpuPass; finish(): unknown };
+type GpuLoss = { reason: string; message?: string };
 type GpuDevice = {
   pushErrorScope(filter: string): void;
   popErrorScope(): Promise<{ message: string } | null>;
@@ -643,7 +624,7 @@ type GpuDevice = {
   createBindGroup(descriptor: unknown): unknown;
   createCommandEncoder(): GpuEncoder;
   queue: { writeBuffer(buffer: GpuBuffer, offset: number, data: Float32Array): void; submit(commands: unknown[]): void };
-  lost: Promise<{ reason: string; message?: string }>;
+  lost: Promise<GpuLoss>;
 };
 type GpuContext = {
   configure(descriptor: unknown): void;
@@ -653,20 +634,32 @@ type GpuContext = {
 };
 type GpuNavigator = { gpu?: { requestAdapter(): Promise<{ requestDevice(): Promise<GpuDevice> } | null> } };
 
-let sharedDevice: Promise<GpuDevice> | undefined;
-function getDevice(): Promise<GpuDevice> {
+type SharedGpuDevice = { device: GpuDevice; listeners: Set<(info: GpuLoss) => void>; loss?: GpuLoss };
+let sharedDevice: Promise<SharedGpuDevice> | undefined;
+function getDevice(): Promise<SharedGpuDevice> {
   if (!sharedDevice) {
     const pending = (async () => {
       const gpu = (navigator as unknown as GpuNavigator).gpu;
       if (!gpu) throw new Error("WebGPU unavailable");
       const adapter = await gpu.requestAdapter();
       if (!adapter) throw new Error("WebGPU adapter unavailable");
-      return adapter.requestDevice();
+      const device = await adapter.requestDevice();
+      const shared: SharedGpuDevice = { device, listeners: new Set() };
+      // Keep only one promise callback per device. A renderer removes its
+      // listener on stop, so a long-lived device cannot retain old canvases.
+      void device.lost.then(info => {
+        shared.loss = info;
+        if (sharedDevice === pending) sharedDevice = undefined;
+        const listeners = [...shared.listeners];
+        shared.listeners.clear();
+        for (const listener of listeners) {
+          try { listener(info); } catch { /* One fallback must not block others. */ }
+        }
+      });
+      return shared;
     })();
     sharedDevice = pending;
-    pending.then(device => {
-      void device.lost.then(() => { if (sharedDevice === pending) sharedDevice = undefined; });
-    }, () => { if (sharedDevice === pending) sharedDevice = undefined; });
+    void pending.catch(() => { if (sharedDevice === pending) sharedDevice = undefined; });
   }
   return sharedDevice;
 }
@@ -683,7 +676,8 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
   if (typeof matchMedia !== "function" || !matchMedia("(dynamic-range: high)").matches) {
     throw new Error("HDR display unavailable; retain the original WebGL renderer");
   }
-  const device = await getDevice();
+  const shared = await getDevice();
+  const { device } = shared;
   const context = canvas.getContext("webgpu") as unknown as GpuContext | null;
   if (!context) throw new Error("WebGPU canvas unavailable");
   let buffer: GpuBuffer | undefined;
@@ -695,6 +689,7 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
   const stop = () => {
     if (stopped) return;
     stopped = true;
+    shared.listeners.delete(onLost);
     cancelAnimationFrame(raf);
     buffer?.destroy();
     context.unconfigure();
@@ -705,8 +700,10 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
     stop();
     options.error(message);
   };
-  void device.lost.then(info => fail(`WebGPU device lost: ${info.message || info.reason}`));
+  const onLost = (info: GpuLoss) => fail(`WebGPU device lost: ${info.message || info.reason}`);
+  shared.listeners.add(onLost);
   try {
+    if (shared.loss) { onLost(shared.loss); throw new Error(failureMessage); }
     device.pushErrorScope("validation");
     scopeOpen = true;
     context.configure({ device, format: "rgba16float", colorSpace: "srgb", alphaMode: "premultiplied", toneMapping: { mode: "extended" } });

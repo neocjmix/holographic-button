@@ -8,10 +8,22 @@ import {resolve} from 'node:path';
 const uiModule=await transform(await readFile('app/optical-tuning.ts','utf8'),{loader:'ts',format:'esm'});
 const {toSliderValue,fromSliderValue,formatOpticalValue,matchesPreset}=await import('data:text/javascript;base64,'+Buffer.from(uiModule.code).toString('base64'));
 const hash=s=>createHash('sha256').update(s).digest('hex');
-test('publication guards remain enabled',async()=>{for(const path of ['package.json','components/holographic-button/package.json'])assert.equal(JSON.parse(await readFile(path,'utf8')).private,true);assert.match(JSON.parse(await readFile('components/holographic-button/package.json','utf8')).scripts.prepublishOnly,/forbidden/)});
-test('original interaction CSS, motion and texture formulas are unchanged outside approved rim rules',async()=>{const now=await readFile('components/holographic-button/index.tsx','utf8');assert.equal(hash((await readFile('components/holographic-button/holographic-button.css','utf8')).replace(/\.holo-button__(?:shadow|body(?::after)?)\{[^}]*\}/g,'')),'dcd8e2dfd3a30c255a2a4ce12d4d45826af917d9eb1f49a987a08c0fabbaaeb2');assert.equal(hash(await readFile('app/globals.css','utf8')),'6d025dfee5367522edf6852b6a484d4a3d9f3a63bbe9f79177424635f9c72ab4');assert.equal(hash(now.slice(now.indexOf('const rad='),now.indexOf('const VS='))),'4f119a162b99f7c97531098e95f638cc8a41534bfddaedfa6ed5856808d4392d');});
-test('preview always renders one satin shader with numeric optical options',async()=>{
- assert.match(await readFile('preview/v1/lab.tsx','utf8'),/import Home from "..\/..\/app\/page"/);
+test('stable metadata is coherent and only the component is publishable',async()=>{
+ const root=JSON.parse(await readFile('package.json','utf8'));
+ const pkg=JSON.parse(await readFile('components/holographic-button/package.json','utf8'));
+ assert.equal(root.private,true);assert.notEqual(pkg.private,true);
+ assert.equal(pkg.version,'1.0.0');assert.equal(root.version,pkg.version);
+ assert.equal(root.dependencies[pkg.name],pkg.version);
+ assert.ok(!pkg.scripts.prepublishOnly);
+ for(const path of ['package-lock.json','components/holographic-button/package-lock.json']){
+  const lock=JSON.parse(await readFile(path,'utf8'));
+  assert.equal(lock.version,pkg.version);assert.equal(lock.packages[''].version,pkg.version);
+ }
+ assert.match(pkg.files.join(' '),/THIRD_PARTY_NOTICES/);
+});
+test('original interaction CSS, attitude math and texture formulas are unchanged outside approved rim rules',async()=>{const now=await readFile('components/holographic-button/index.tsx','utf8');assert.equal(hash((await readFile('components/holographic-button/holographic-button.css','utf8')).replace(/\n\.holo-button__body--fallback\{[^}]*\}\n?$/,'').replace(/\.holo-button__(?:shadow|body(?::after)?)\{[^}]*\}/g,'')),'dcd8e2dfd3a30c255a2a4ce12d4d45826af917d9eb1f49a987a08c0fabbaaeb2');assert.equal(hash(await readFile('app/globals.css','utf8')),'6d025dfee5367522edf6852b6a484d4a3d9f3a63bbe9f79177424635f9c72ab4');assert.equal(hash(now.slice(now.indexOf('const rad='),now.indexOf('export function useHolographicMotion'))),'b496c72cff212d40531c0161c231cd5b389f39eeb7374444201ce719b40e0ad6');});
+test('demo always renders one satin shader with numeric optical options',async()=>{
+ assert.match(await readFile('github-pages/entry.tsx','utf8'),/import Home from "..\/app\/page"/);
  const demo=await readFile('app/page.tsx','utf8');
  assert.match(demo,/Surface specular intensity/);
  assert.match(demo,/min="0" max="10" step="0.05"/);
@@ -97,20 +109,20 @@ test('linear sliders preserve exact values and clamp to bounds',()=>{
  assert.equal(fromSliderValue(20,range),12);
 });
 
-test('preview retains sticky mobile result, readable hints and versioned title',async()=>{
- const css=await readFile('preview/v1/tuning.css','utf8');
+test('demo retains sticky mobile result, readable hints and versioned title',async()=>{
+ const css=await readFile('app/tuning.css','utf8');
  assert.match(css,/\.docs-shell\{overflow:clip\}/);
  assert.match(css,/position:sticky/);
  assert.match(css,/\.tuning-layout \.live-stage\{grid-row:1/);
  assert.match(css,/\.tuning-layout \.control-panel\{grid-row:2/);
  assert.match(css,/\.control-hint/);
  assert.match(css,/min-height:44px/);
- assert.match(await readFile('preview/v1/lab.tsx','utf8'),/import "\.\/tuning\.css"/);
- assert.match(await readFile('preview/v1/index.html','utf8'),/v1.0.0-preview.15/);
+ assert.match(await readFile('github-pages/entry.tsx','utf8'),/import "..\/app\/tuning\.css"/);
+ assert.match(await readFile('app/index.html','utf8'),/__PACKAGE_VERSION__/);
 });
 
-test('mobile preview sticks flush to the viewport while desktop keeps its original offset',async()=>{
- const css=await readFile('preview/v1/tuning.css','utf8');
+test('mobile result sticks flush to the viewport while desktop keeps its original offset',async()=>{
+ const css=await readFile('app/tuning.css','utf8');
  const [desktop,mobile]=css.split('@media(max-width:760px){');
  assert.match(desktop,/\.tuning-layout \.live-stage\{position:sticky;top:84px;/);
  assert.match(mobile,/\.tuning-layout \.live-stage\{grid-row:1;top:0;z-index:5;/);
@@ -132,7 +144,7 @@ test('power sliders make zero-inclusive defect ranges controllable near their ba
 });
 
 
-test('rendered preview exposes every control with correct mapping and default values',async()=>{
+test('rendered demo exposes every control with correct mapping and default values',async()=>{
  const built=await build({
   stdin:{contents:'import {renderToStaticMarkup} from "react-dom/server"; import Home from "./app/page.tsx"; export const html=renderToStaticMarkup(<Home/>); export {OPTICAL_CONTROLS,OPTICAL_PRESETS,DEFAULT_OPTICAL_OPTIONS} from "@neocjmix/holographic-button";',resolveDir:process.cwd(),loader:'tsx'},
   alias:{'@neocjmix/holographic-button':resolve('components/holographic-button/index.tsx')},
@@ -157,7 +169,9 @@ test('rendered preview exposes every control with correct mapping and default va
  }
  assert.ok(html.includes('Custom / 수정됨')===false,'initial state is unmodified');
  assert.ok(html.includes('Satin Mirror로 돌아가기'));
- assert.ok(html.includes('v1.0.0-preview.15'));
+ assert.ok(html.includes('v1.0.0'));
  assert.ok(html.includes('색 코팅이나 회절 강도를 올리면 간격의 차이가 보여요.'));
  assert.ok(html.includes('격자 요철을 올리면 셀 밀도의 차이가 보여요.'));
 });
+
+test('stable demo has honest attribution without preview warnings',async()=>{const source=await readFile('app/page.tsx','utf8');assert.match(source,/AI-ASSISTED IMPLEMENTATION/);assert.match(source,/THIRD_PARTY_NOTICES\.md/);assert.doesNotMatch(source,/preview\.15|UNREVIEWED AI OUTPUT|No human has reviewed|not published to npm/);});

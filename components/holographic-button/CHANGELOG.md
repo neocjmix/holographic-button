@@ -2,21 +2,35 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning.
 
-## 1.0.0-preview.15 — 2026-10-09 (unpublished)
+## 1.0.0 — 2026-10-09
+
+### Added
+
+- HDR output through WebGPU on supported displays and browsers, with WebGL fallback.
+- One configurable reflective shader with Satin Mirror, Card Foil, Grid Prism and Smooth Prism numeric presets.
+- Exported optical defaults, limits, normalization, preset values and control metadata.
+- Continuous coating density, attached facet strength/density, shared grating orientation, anisotropic blur and surface-detail controls.
+- Adaptive reflected-light recovery, a neutral procedural room environment, and a reference-derived Sticker Foil variant with MIT attribution.
+- Source-executed optical references, frozen baseline fixtures, backend parity, lifecycle, sensor, demo and packaging regression tests.
 
 ### Changed
 
-- Replace preview-only material switches with four numeric presets of the same parameterized reflective shader.
-- Preserve Satin Mirror's accepted default; keep legacy material variants and nine-field mirror options compatible.
-- Expand supported ranges with log/cubic UI mappings, selected-preset reset, Satin Mirror reset and custom-state feedback.
-- Add continuous coating density, attached facet strength/density and shared grating orientation.
-- Redistribute diffraction energy, retain neutral reflection when orders cannot propagate, and preserve color with an RGB-wide SDR shoulder.
-- Soften reflected source edges at broad filter settings and keep per-instance adaptive recovery active across all preset edits.
+- Promote the full optical playground to the official demo, with grouped live controls, contextual hints, custom-state feedback, selected-preset reset and Satin Mirror reset.
+- Preserve the neutral Satin Mirror baseline and maintain compatibility with original variants, the nine-field `mirrorOptions` alias and boolean `specular` values.
+- Keep the component's original `spectral-film`/strength-1 API defaults; the documented quick start and demo explicitly select Satin Mirror/strength 5.
+- Distribute diffraction energy across valid orders, preserve neutral reflection when orders cannot propagate, and preserve color with an RGB-wide SDR shoulder.
+- Use content-hashed demo assets and ship both MIT license notices in the Pages output.
+- Replace isolated-preview scaffolding and release warnings with stable documentation while retaining AI attribution and verification limitations.
 
-### Verification
+### Fixed
 
-- Source-executed CPU optical references, backend equation parity, legacy helper hashes and shader validation are covered separately from physical GPU/HDR validation.
-- No npm release, tag, main merge or original-demo deployment accompanies this preview change.
+- Reject nonfinite sensor readings and safely default unavailable screen-orientation angles to zero.
+- Clean up partial WebGL initialization and stopped HDR renderers, and retain a readable fallback when rendering becomes unavailable.
+- Keep the mobile tuning result flush to the viewport while preserving its desktop offset.
+
+### Verification limits
+
+Automated CPU references, lifecycle mocks, typechecks and build checks do not establish physical GPU/HDR display quality or mobile frame rate. Validate on your target devices.
 
 ## 0.1.2 — 2026-08-25
 

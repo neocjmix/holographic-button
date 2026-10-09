@@ -57,10 +57,10 @@ export default function Home(){
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.15</em></a>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.15 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="Implementation and display notes"><strong>AI-ASSISTED IMPLEMENTATION</strong><p>Built with AI under human visual direction. HDR is available on supported displays and browsers, with WebGL fallback. Check rendering, accessibility and performance on your target devices before shipping.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -152,7 +152,7 @@ export default function Home(){
     <div className="api-block"><h3>HolographicButton</h3><div className="api-table" role="table">
      {[
       ["motion","HolographicMotion","required","Shared matrix from the hook."],
-      ["variant","HolographicVariant","spectral-film","This preview always uses satin-mirror. Legacy variants remain available in the package."],
+      ["variant","HolographicVariant","spectral-film","This demo uses satin-mirror with numeric presets. Legacy variants remain available in the package."],
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],

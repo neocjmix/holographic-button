@@ -1,4 +1,4 @@
-/* Preview-only tuning layout. Original demo stylesheet and material CSS remain intact. */
+/* Optical playground layout, shared by the stable demo. */
 .docs-shell{overflow:clip}
 .tuning-layout{overflow:visible}
 .tuning-layout .live-stage{position:sticky;top:84px;align-self:start;min-height:420px;border-radius:0 25px 0 0}

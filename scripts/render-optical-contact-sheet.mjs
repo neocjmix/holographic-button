@@ -2,7 +2,7 @@
 // requested directory. No GPU, font, image or browser dependency is required.
 import {writeFile,mkdir} from 'node:fs/promises';
 import {opticalModel,options} from '../components/holographic-button/tests/optical-reference.mjs';
-const out=process.argv[2]??'/tmp/optical15';await mkdir(out,{recursive:true});
+const out=process.argv[2]??'/tmp/optical-presets';await mkdir(out,{recursive:true});
 const poses=[[62.9,1.1,0],[50,-15,0],[75,15,0],[0,0,0]];
 const width=320,height=80,gap=12,W=width*poses.length+gap*(poses.length-1),H=height*options.OPTICAL_PRESETS.length+gap*(options.OPTICAL_PRESETS.length-1);
 const pixels=Buffer.alloc(W*H*3,18),report=[];

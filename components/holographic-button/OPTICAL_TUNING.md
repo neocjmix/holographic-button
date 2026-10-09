@@ -1,6 +1,6 @@
-# v1 HDR preview
+# Optical presets and tuning
 
-Version **1.0.0-preview.15** uses one configurable optical shader throughout the preview. The hero, live result and preset gallery all render `variant="satin-mirror"` with numeric `opticalOptions`. The separate legacy material variants remain supported by the package, but are not shader choices in this preview.
+Version **1.0.0** uses one configurable optical shader throughout the demo. The hero, live result and preset gallery all render `variant="satin-mirror"` with numeric `opticalOptions`. The separate legacy material variants remain supported by the package, but are not shader choices in this demo.
 
 ## Presets and live controls
 
@@ -16,7 +16,7 @@ The exported `OPTICAL_CONTROLS` metadata is the single source for slider keys, l
 
 The numeric specular/HDR strength slider remains separate and initially 5. Updating a preset or slider does not key/remount the live button. GPU uniform updates and resource lifetime are managed by the component.
 
-On small screens the result precedes the controls and remains sticky while adjusting them. The larger touch targets, Korean hints and custom-state feedback are preview-only; the original base demo stylesheet remains untouched.
+On small screens the result precedes the controls and remains sticky while adjusting them. Touch-friendly controls, Korean hints and custom-state feedback are included in the official demo. On mobile the result sticks flush to the top of the viewport.
 
 ## Optical ranges
 
@@ -42,12 +42,12 @@ Diffraction follows wavelength/pitch geometry; very small pitch may not produce 
 
 The default still evaluates 15 room samples per pixel. Enabled diffraction can evaluate up to 105; coating/facets do not add extra room samples. Presets with diffraction therefore cost more than the neutral baseline, including fixed gallery examples. No mobile frame-rate claim is made.
 
-Run `node scripts/render-optical-contact-sheet.mjs /tmp/optical-preview` to produce a reproducible CPU contact sheet (PPM) and metrics JSON. Rows are presets; columns are recovered, two nearby, and initial poses. Source scalar helpers plus explicit double-precision vector math support the analysis, without simulating GPU rasterization, device precision or HDR presentation.
+From the source repository root, run `node scripts/render-optical-contact-sheet.mjs /tmp/optical-presets` to produce a reproducible CPU contact sheet (PPM) and metrics JSON. Rows are presets; columns are recovered, two nearby, and initial poses. Source scalar helpers plus explicit double-precision vector math support the analysis, without simulating GPU rasterization, device precision or HDR presentation.
 
 ## Compatibility and verification
 
-`opticalOptions` is the current API for this configurable shader. Earlier `mirrorOptions` and the original material variant names remain supported for compatibility; they are not removed or silently relabeled as the new numeric presets. The package API default is documented separately from this preview's Satin Mirror starting state.
+`opticalOptions` is the current API for this configurable shader. Earlier `mirrorOptions` and the original material variant names remain supported for compatibility; they are not removed or silently relabeled as the new numeric presets. The package API default is documented separately from the demo's Satin Mirror starting state.
 
 The default optical values retain the accepted neutral Satin Mirror baseline, with diffraction disabled. Preset appearance and opt-in effects should be checked on physical devices. CPU tests, shader compilation and server-rendered control checks do not establish physical GPU/HDR display quality or mobile frame rate.
 
-MIT attribution for bpisano/Sticker remains included for the legacy implementation. npm publication guards remain enabled. This local change does not publish to npm, merge to main, create a release/tag, or replace the original deployed demo.
+MIT attribution for bpisano/Sticker remains included in [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) for the legacy implementation.

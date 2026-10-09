@@ -31,3 +31,9 @@ yarn-error.log*
 /github-pages/favicon.svg
 /github-pages/og.png
 /preview-dist/
+
+# generated GitHub Pages output (the entry.tsx source stays tracked)
+/github-pages/assets/
+/github-pages/index.html
+/github-pages/LICENSE
+/github-pages/THIRD_PARTY_NOTICES.md
