@@ -1,6 +1,6 @@
 {
   "name": "@neocjmix/holographic-button",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "A world-lit holographic WebGL button for React, driven by device attitude or pointer movement.",
   "license": "MIT",
   "author": "ChanJin Park",
@@ -24,7 +24,9 @@
     "dist",
     "README.md",
     "LICENSE",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.md",
+    "OPTICAL_TUNING.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && node build.mjs",

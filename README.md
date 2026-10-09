@@ -1,11 +1,10 @@
 # Holographic Button
 
-A world-lit holographic WebGL button for React. Its material responds to device attitude on mobile and pointer movement on desktop while the lights remain fixed in world space.
+A world-lit holographic React button with live optical controls and HDR on supported displays. Device attitude and pointer movement move one reflective surface beneath world-fixed lighting.
 
 [Live demo](https://neocjmix.github.io/holographic-button/) · [npm](https://www.npmjs.com/package/@neocjmix/holographic-button) · [Package documentation](./components/holographic-button/README.md) · MIT
 
-> [!WARNING]
-> This implementation and its documentation were generated entirely by AI and have not received human code review. Treat v0.x as experimental and audit it before production use.
+Version 1.0.0 includes Satin Mirror, Card Foil, Grid Prism and Smooth Prism as numeric presets of one configurable shader. The original material variants remain supported.
 
 ## Install
 
@@ -18,6 +17,7 @@ npm install @neocjmix/holographic-button
 
 import {
   HolographicButton,
+  DEFAULT_OPTICAL_OPTIONS,
   useHolographicMotion,
 } from "@neocjmix/holographic-button";
 import "@neocjmix/holographic-button/styles.css";
@@ -28,19 +28,27 @@ export function CTA() {
   });
 
   return (
-    <HolographicButton motion={motion} variant="spectral-film">
+    <HolographicButton
+      motion={motion}
+      variant="satin-mirror"
+      opticalOptions={DEFAULT_OPTICAL_OPTIONS}
+      specular={5}
+    >
       ACTIVATE
     </HolographicButton>
   );
 }
 ```
 
+This matches the demo's neutral starting point. For compatibility, omitting `variant` still selects `spectral-film` and omitting `specular` still uses `1`.
+
 ## Repository layout
 
-- `components/holographic-button` — the published React package
-- `app` — source for the interactive documentation site
-- `github-pages` — static GitHub Pages entry and generated assets
-- `.github/workflows` — npm release and Pages deployment workflows
+- `components/holographic-button` — the published React package, optical regression tests and frozen reference fixtures
+- `app` — interactive documentation, tuning controls, styles and HTML template
+- `github-pages` — static entry point and generated demo, including MIT notices
+- `tests` — demo, build and release-metadata checks
+- `.github/workflows` — verified npm release and Pages deployment workflows
 
 ## Development
 
@@ -48,17 +56,15 @@ Requires Node.js 22.13 or newer for the repository tooling.
 
 ```bash
 npm ci
-npm run build
+npm run check
 ```
 
-Useful checks:
+`check` runs all tests, package and demo typechecks, both builds, and a package-content dry run. `npm run build:pages` creates content-hashed demo assets and removes stale bundles. The [optical tuning guide](./components/holographic-button/OPTICAL_TUNING.md) documents ranges, performance tradeoffs and verification limits.
 
-```bash
-npm run build:package
-npm run pack:check
-npm run typecheck
-```
+## Attribution and verification
+
+Implementation and documentation were developed with AI assistance under human visual direction. Automated checks do not establish physical HDR display quality, mobile frame rate or a full security/accessibility audit; test on the browsers and devices you support.
 
 ## License
 
-[MIT](./components/holographic-button/LICENSE) © 2026 ChanJin Park
+[MIT](./components/holographic-button/LICENSE) © 2026 ChanJin Park. The retained Sticker Foil implementation includes [third-party MIT attribution](./components/holographic-button/THIRD_PARTY_NOTICES.md).

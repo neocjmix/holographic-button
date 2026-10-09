@@ -1,6 +1,6 @@
 {
   "name": "holographic-button-repository",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "private": true,
   "workspaces": [
     "components/holographic-button"
@@ -13,10 +13,12 @@
     "build:package": "npm run build --workspace @neocjmix/holographic-button",
     "build:pages": "node scripts/build-github-pages.mjs",
     "pack:check": "npm run build:package && cd components/holographic-button && npm --cache ../../.npm-cache pack --dry-run --ignore-scripts --workspaces=false",
-    "typecheck": "npm run typecheck --workspace @neocjmix/holographic-button"
+    "typecheck": "npm run typecheck --workspace @neocjmix/holographic-button && tsc -p tsconfig.json --incremental false",
+    "test": "node --test components/holographic-button/tests/*.test.mjs tests/*.test.mjs",
+    "check": "npm test && npm run typecheck && npm run build && npm run pack:check"
   },
   "dependencies": {
-    "@neocjmix/holographic-button": "0.1.2",
+    "@neocjmix/holographic-button": "1.0.0",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
