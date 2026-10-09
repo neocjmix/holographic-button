@@ -13,7 +13,7 @@ test('package and demo typecheck from source without prebuilt workspace declarat
   t.after(() => rm(dir, { recursive: true, force: true }));
   const files = [
     'package.json', 'tsconfig.json',
-    'app/page.tsx', 'app/optical-tuning.ts', 'github-pages/entry.tsx',
+    'app/page.tsx', 'app/demo-copy.ts', 'app/optical-tuning.ts', 'github-pages/entry.tsx',
     'components/holographic-button/package.json',
     'components/holographic-button/tsconfig.build.json',
     'components/holographic-button/index.tsx',

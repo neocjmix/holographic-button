@@ -1,16 +1,16 @@
 "use client";
 
 import {useMemo,useState} from "react";
-import {HolographicButton,OPTICAL_PRESETS,OPTICAL_CONTROLS,DEFAULT_OPTICAL_OPTIONS,normalizeOpticalOptions,type OpticalOptions,type OpticalPresetId,useHolographicMotion} from "@neocjmix/holographic-button";
+import {HolographicButton,DEFAULT_OPTICAL_OPTIONS,normalizeOpticalOptions,type OpticalOptions,type OpticalPresetId,useHolographicMotion} from "@neocjmix/holographic-button";
+import {DEMO_OPTICAL_PRESETS,DEMO_OPTICAL_CONTROLS} from "./demo-copy";
 import {toSliderValue,fromSliderValue,formatOpticalValue,matchesPreset} from "./optical-tuning";
 
 const PACKAGE="@neocjmix/holographic-button";
-const SATIN_PRESET=OPTICAL_PRESETS.find(preset=>preset.id==="satin-mirror")!;
-const DEMO_PRESET_NOTES:Partial<Record<OpticalPresetId,string>>={"satin-mirror":"부드러운 회색 거울 반사"};
+const SATIN_PRESET=DEMO_OPTICAL_PRESETS.find(preset=>preset.id==="satin-mirror")!;
 const controlGroups=[
- {id:"surface",label:"표면과 반사",note:"반사의 선명함, 방향성과 표면의 굴곡을 조절해요."},
- {id:"pattern",label:"무늬와 미세 구조",note:"회절과 미세한 요철로 같은 표면의 인상을 바꿔요."},
- {id:"motion",label:"빛과 움직임",note:"기기를 움직인 뒤 빛이 원래 방향으로 돌아오는 시간을 조절해요."},
+ {id:"surface",label:"Surface and reflections",note:"Adjust reflection sharpness, directionality, and surface relief."},
+ {id:"pattern",label:"Pattern and microstructure",note:"Shape the same surface with diffraction and fine relief."},
+ {id:"motion",label:"Light and motion",note:"Set how long the light takes to return to its original direction after moving your device."},
 ] as const;
 const installCommands={npm:"npm install "+PACKAGE,pnpm:"pnpm add "+PACKAGE,yarn:"yarn add "+PACKAGE,bun:"bun add "+PACKAGE};
 
@@ -32,11 +32,11 @@ export default function Home(){
  const[height,setHeight]=useState(148);
  const[specular,setSpecular]=useState(5);
  const[opticalOptions,setOpticalOptions]=useState<OpticalOptions>(()=>({...DEFAULT_OPTICAL_OPTIONS}));
- const currentPreset=OPTICAL_PRESETS.find(preset=>preset.id===presetId)!;
+ const currentPreset=DEMO_OPTICAL_PRESETS.find(preset=>preset.id===presetId)!;
  const modified=!matchesPreset(opticalOptions,specular,currentPreset);
  const materialLabel=modified?"Custom · "+currentPreset.label:currentPreset.label;
  const applyPreset=(id:OpticalPresetId)=>{
-  const preset=OPTICAL_PRESETS.find(item=>item.id===id)!;
+  const preset=DEMO_OPTICAL_PRESETS.find(item=>item.id===id)!;
   setPresetId(id);setOpticalOptions(normalizeOpticalOptions(preset.options));setSpecular(preset.specular);
  };
  const resetSatinMirror=()=>{setPresetId(SATIN_PRESET.id);setOpticalOptions({...DEFAULT_OPTICAL_OPTIONS});setSpecular(5)};
@@ -83,10 +83,10 @@ export default function Home(){
    <div className="playground-grid tuning-layout">
     <div className="control-panel">
      <div className="control-group">
-      <span className="control-label">Optical preset · 하나의 셰이더</span>
-      <div className="segment-grid preset-grid" aria-label="Optical presets">{OPTICAL_PRESETS.map(preset=><button type="button" key={preset.id} aria-pressed={presetId===preset.id&&!modified} className={presetId===preset.id&&!modified?"selected":""} onClick={()=>applyPreset(preset.id)}><b>{preset.label}</b><small>{DEMO_PRESET_NOTES[preset.id]??preset.note}</small></button>)}</div>
-      <p className="preset-status" aria-live="polite"><b>{modified?"Custom / 수정됨":currentPreset.label}</b><span>{modified?currentPreset.label+"에서 조절한 값이에요.":"프리셋은 아래 모든 수치의 시작점이에요."}</span></p>
-      <div className="preset-actions"><button className="copy-button preset-reset" type="button" onClick={()=>applyPreset(presetId)} disabled={!modified}>선택 프리셋 복원</button><button className="copy-button satin-reset" type="button" onClick={resetSatinMirror}>Satin Mirror로 돌아가기</button></div>
+      <span className="control-label">Optical preset · one shader</span>
+      <div className="segment-grid preset-grid" aria-label="Optical presets">{DEMO_OPTICAL_PRESETS.map(preset=><button type="button" key={preset.id} aria-pressed={presetId===preset.id&&!modified} className={presetId===preset.id&&!modified?"selected":""} onClick={()=>applyPreset(preset.id)}><b>{preset.label}</b><small>{preset.note}</small></button>)}</div>
+      <p className="preset-status" aria-live="polite"><b>{modified?"Custom":currentPreset.label}</b><span>{modified?"Adjusted from "+currentPreset.label+".":"Each preset is a starting point for all values below."}</span></p>
+      <div className="preset-actions"><button className="copy-button preset-reset" type="button" onClick={()=>applyPreset(presetId)} disabled={!modified}>Reset selected preset</button><button className="copy-button satin-reset" type="button" onClick={resetSatinMirror}>Back to Satin Mirror</button></div>
      </div>
      <div className="field-grid">
       <label><span>Label</span><input value={label} maxLength={18} onChange={e=>setLabel(e.target.value)}/></label>
@@ -95,20 +95,20 @@ export default function Home(){
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
      <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
      <label className="range-field"><span>Surface specular <b>{specular.toFixed(2)}×</b></span><input aria-label="Surface specular intensity" type="range" min="0" max="10" step="0.05" value={specular} onChange={e=>setSpecular(Number(e.target.value))}/></label>
-     <p className="tuning-note">모든 프리셋은 같은 셰이더를 사용해요. 넓은 범위는 작은 값도 섬세하게 조절할 수 있게 간격을 나눴어요. 표시된 숫자는 실제 적용값이에요.</p>
+     <p className="tuning-note">All presets use one shader. Wide-range sliders give finer control near low values. The numbers shown are the actual values applied.</p>
      {controlGroups.map(group=><fieldset className="optical-tuning" key={group.id} aria-label={group.label}>
       <legend>{group.label}</legend>
       <p>{group.note}</p>
-      {OPTICAL_CONTROLS.filter(control=>control.group===group.id).map(control=>{
+      {DEMO_OPTICAL_CONTROLS.filter(control=>control.group===group.id).map(control=>{
        const logarithmic=control.scale==="log"&&control.min>0;
        const nonlinear=logarithmic||control.scale==="power";
        const value=opticalOptions[control.key];
        const contextHint=control.key==="rainbowSpacing"&&opticalOptions.iridescence===0&&opticalOptions.diffraction===0
-        ? "색 코팅이나 회절 강도를 올리면 간격의 차이가 보여요."
+        ? "Increase Color coating or Diffraction strength to see changes in spacing."
         : control.key==="facetScale"&&opticalOptions.facetStrength===0
-         ? "격자 요철을 올리면 셀 밀도의 차이가 보여요."
+         ? "Increase Grid relief to see changes in cell density."
          : control.key==="directionality"&&opticalOptions.reflectionBlur===0
-          ? "반사 블러를 올리면 방향성의 차이가 보여요.":null;
+          ? "Increase Reflection blur to see changes in directionality.":null;
        return <label className="range-field" key={control.key}>
         <span>{control.label}<b>{formatOpticalValue(value,control.unit)}</b></span>
         <input aria-label={control.label} aria-describedby={[control.hint?"hint-"+control.key:null,contextHint?"context-"+control.key:null].filter(Boolean).join(" ")||undefined} aria-valuetext={formatOpticalValue(value,control.unit)} data-optical-control={control.key} data-scale={logarithmic?"log":control.scale==="power"?"power":"linear"} type="range" min={nonlinear?0:control.min} max={nonlinear?1:control.max} step={nonlinear?.001:control.step} value={toSliderValue(value,control)} onChange={event=>setOpticalOptions(previous=>normalizeOpticalOptions({...previous,[control.key]:fromSliderValue(Number(event.target.value),control)}))}/>
@@ -144,7 +144,7 @@ export default function Home(){
 
   <section className="materials section-frame" id="materials">
    <div className="section-intro compact"><p className="section-index">03 / PRESETS</p><h2>One surface.<br/>Many starting points.</h2><p>Every sample uses the same shader with a different set of numbers. These fixed examples stay unchanged while you tune the playground. Satin Mirror preserves the accepted neutral baseline.</p></div>
-   <div className="material-grid">{OPTICAL_PRESETS.map((preset,index)=><article key={preset.id}><div><span>{"0"+(index+1)}</span><h3>{preset.label}</h3><p>{DEMO_PRESET_NOTES[preset.id]??preset.note}</p></div><HolographicButton motion={motion} variant="satin-mirror" opticalOptions={preset.options} specular={preset.specular} height={112} onClick={()=>setActivated(v=>v+1)}>{preset.label.toUpperCase()}</HolographicButton></article>)}</div>
+   <div className="material-grid">{DEMO_OPTICAL_PRESETS.map((preset,index)=><article key={preset.id}><div><span>{"0"+(index+1)}</span><h3>{preset.label}</h3><p>{preset.note}</p></div><HolographicButton motion={motion} variant="satin-mirror" opticalOptions={preset.options} specular={preset.specular} height={112} onClick={()=>setActivated(v=>v+1)}>{preset.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
   <section className="api section-frame" id="api">
