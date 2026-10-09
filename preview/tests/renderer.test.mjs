@@ -109,6 +109,15 @@ test('preview retains sticky mobile result, readable hints and versioned title',
  assert.match(await readFile('preview/v1/index.html','utf8'),/v1.0.0-preview.15/);
 });
 
+test('mobile preview sticks flush to the viewport while desktop keeps its original offset',async()=>{
+ const css=await readFile('preview/v1/tuning.css','utf8');
+ const [desktop,mobile]=css.split('@media(max-width:760px){');
+ assert.match(desktop,/\.tuning-layout \.live-stage\{position:sticky;top:84px;/);
+ assert.match(mobile,/\.tuning-layout \.live-stage\{grid-row:1;top:0;z-index:5;/);
+ const globals=await readFile('app/globals.css','utf8');
+ assert.match(globals,/\.topbar\{position:relative;/,'header scrolls away rather than covering the flush mobile result');
+});
+
 test('power sliders make zero-inclusive defect ranges controllable near their baseline',()=>{
  const range={min:0,max:100,step:.1,scale:'power'};
  assert.equal(toSliderValue(0,range),0);

@@ -24,7 +24,7 @@
 .control-hint.contextual-hint{margin-top:5px;color:#b2a3c9}
 .preset-grid button:focus-visible,.preset-actions button:focus-visible,.optical-tuning input:focus-visible{outline:2px solid #c0b4e1;outline-offset:3px}
 @media(max-width:760px){
- .tuning-layout .live-stage{grid-row:1;top:62px;z-index:5;min-height:260px;padding:42px 18px 18px;border-radius:25px 25px 0 0;border-bottom:1px solid #292b34}
+ .tuning-layout .live-stage{grid-row:1;top:0;z-index:5;min-height:260px;padding:42px 18px 18px;border-radius:25px 25px 0 0;border-bottom:1px solid #292b34}
  .tuning-layout .control-panel{grid-row:2;border-bottom:0}
  .tuning-layout .stage-meta{left:20px;right:20px;top:17px}
  .tuning-layout .live-stage>p{margin-top:14px}
