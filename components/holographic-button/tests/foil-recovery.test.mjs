@@ -65,7 +65,7 @@ test('shared stable refs are coherent, duplicate RAF samples idempotent, final r
  releaseNew();releaseOther();
 });
 test('same effective matrix source feeds HDR and WebGL; original four and shared hook remain raw',()=>{
- assert.match(component,/preset.method>=4\?foilRecoveryMatrix\(motion.matrix,now\):motion.matrix.current/);
+ assert.match(component,/preset.method===4\?foilRecoveryMatrix\(motion.matrix,now\):motion.matrix.current/);
  assert.match(component,/matrix:renderMatrix/);assert.match(component,/uniformMatrix3fv\(um,false,renderMatrix\(now\)\)/);
  assert.match(renderer,/const m = options.matrix\(now\)/);
  assert.match(component,/retainFoilRecovery\(motion.matrix\):undefined,\[motion.matrix,preset\]/);

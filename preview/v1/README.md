@@ -1,31 +1,41 @@
 # v1 HDR preview
 
-Version **1.0.0-preview.13** restores Sticker Foil's preview.11 color treatment, retains adaptive angle recovery, doubles the actual inset ridge dimensions, and adds a separate **Satin Mirror** material.
+Version **1.0.0-preview.14** keeps the accepted preview.13 Satin Mirror as its default and exposes live optical tuning. No diffraction is enabled by default.
 
-## Restored foil
+## Live controls
 
-Sticker Foil's source texture, chroma treatment and HDR response return to the verified preview.11 shader. The preview.12 extra saturation and HDR boost are removed. Angle recovery remains enabled; the enlarged shared rim is intentionally different from preview.11.
+The typed `mirrorOptions` prop applies only to `satin-mirror`. `DEFAULT_MIRROR_OPTIONS` and `MIRROR_OPTION_LIMITS` are exported. Omitted, non-finite or out-of-range values are normalized to safe defaults/bounds.
 
-## Doubled rounded ridge
+| Field | Default | Range | Meaning |
+|---|---:|---:|---|
+| diffraction | 0 | 0–2 | Colored diffraction contribution; zero preserves the gray mirror |
+| rainbowSpacing | 1 | .25–4 | Relative grating spacing; larger pitch produces narrower diffraction angles |
+| reflectionBlur | 1 | 0–3 | Overall reflected-environment blur |
+| directionality | 1 | 0–2 | Zero is isotropic, one is preview.13 anisotropy |
+| bubbles | 1 | 0–4 | Existing bubble perturbation amplitude |
+| scratches | 1 | 0–4 | Existing scratch perturbation amplitude |
+| ridgeWidth | 1 | .25–2 | Multiplier on the preview.13 ridge width |
+| ridgeHeight | 1 | 0–3 | Multiplier on the preview.13 ridge height |
+| recoverySeconds | 2.5 | .25–10 | Light-recovery time constant; lower values respond faster |
 
-The raised ridge itself is doubled in both dimensions relative to preview.12: normalized width **.064 → .128**, height **.0016 → .0032**. This is not a thicker CSS outline or shadow. The C2 rounded profile keeps a flat central face and flat outermost land. Scaling both dimensions equally retains its maximum slope while making the ridge wider and taller.
+The existing specular/HDR strength slider remains separate, initially 5. Reset restores the optical defaults and strength 5 without changing label, size or selected material. The generated React example includes current tuning values. The mirror gallery sample follows the same settings.
 
-## Satin Mirror
+On small screens the result precedes the controls and remains sticky while adjusting them. This layout is preview-only; the original base demo and component stylesheets remain untouched.
 
-The sixth material starts with a neutral gray reflecting surface and an original procedural room environment, including broad windows/panels and dark structure. Environment lookup follows the reflected viewing ray; it is not a painted screen-space background.
+## Optical and runtime behavior
 
-Horizontal and vertical reflection blur are intentionally very different. Bright reflected sources use the same directional filtering as the rest of the environment, so the specular softness agrees with the reflection. Small surface-attached bubble and scratch deviations perturb reflection on an otherwise flat face. These imperfections belong only to Satin Mirror and do not replace existing textures.
+The default branch retains the preview.13 environment/reflection helpers. Enabled diffraction traces wavelength/order directions in the surface grating frame and samples the same reflected environment with the same anisotropic filter. It is not a screen-space rainbow overlay. Some wavelengths/orders do not propagate at small grating spacing; a colored contribution can therefore diminish at those settings.
 
-Satin Mirror and Sticker Foil share the gradual adaptive light reference and enlarged rim. HDR extends reflected-light range; no external environment assets, accounts, runtime fetches or new engines are required. This is a procedural environment and stylized material approximation, not a photographed room or measured surface.
+Optical sliders update uniforms without recreating GPU resources. Mirror recovery retains persistent per-instance state while its time constant changes, avoiding configuration conflicts with the foil. HDR and WebGL share that instance's sampler, with same-timestamp deduplication and bounded pause handling. Original four materials and Sticker Foil ignore mirror options.
 
-## Recovery and verification
+Enabled diffraction is more expensive: the current bounded filter can perform up to 105 room evaluations per pixel versus 15 with diffraction disabled. No mobile frame-rate claim is made. The default does not incur the optional diffraction sampling cost.
 
-Device motion still changes the reflection immediately. At rest, the light reference recovers toward its calibrated display angle using the existing 2.5-second time constant. Shared RAF timestamps avoid double adaptation, long pauses do not accrue adaptation debt, and the original four materials retain their raw motion path.
+## Preserved baseline
 
-The demo shows all six variants, with Satin Mirror selected initially. Mirror and foil samples use strength 5; the existing original-four samples retain strength 1. The playground slider remains 0–10 and the component API default remains 1.
+Sticker Foil retains its restored preview.11 color path and existing recovery. The shared baseline rounded ridge remains width .128 and height .0032, with flat outer land and center; mirror-specific multipliers do not change other materials. Default tuning preserves preview.13 appearance for identical pose and elapsed-time inputs. Independently mounted mirror instances now own their recovery phase rather than inheriting another material's elapsed history.
 
-CPU analytical comparisons, deterministic tests and shader compilation are not physical GPU/HDR display validation. The cloud browser has no GPU; visual appearance and performance must still be evaluated on a device.
+## Verification and publication
 
-## Publication
+CPU analytical tests, shader compilation and browser control checks do not establish physical GPU/HDR display quality. The cloud browser has no GPU; on-device inspection remains necessary, especially for opt-in diffraction performance.
 
-MIT attribution for bpisano/Sticker remains included. No third-party environment image or shader code is copied for Satin Mirror. Both repositories are public, but npm publication guards remain enabled. No npm release, main merge, tag or original-demo replacement is authorized.
+MIT attribution for bpisano/Sticker remains included. Both repositories are public, but npm guards remain enabled. No npm release, main merge, tag or original-demo replacement is authorized.

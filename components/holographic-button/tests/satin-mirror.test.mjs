@@ -23,13 +23,13 @@ export const mirrorModels=[glsl,wgsl].map((source,i)=>{
  };
  return m;
 });
-test('sixth style is distinct and shares only the adaptive light frame and rim',()=>{
+test('sixth style keeps the baseline helpers and isolates adaptive recovery',()=>{
  assert.match(componentSource,/"satin-mirror":\{method:5/);
- assert.match(componentSource,/preset.method>=4\?retainFoilRecovery/);
- assert.match(componentSource,/preset.method>=4\?foilRecoveryMatrix/);
+ assert.match(componentSource,/preset.method===4\?retainFoilRecovery/);
+ assert.match(componentSource,/preset.method===4\?foilRecoveryMatrix/);
  for(const s of [glsl,wgsl]){
   assert.match(s,/if\s*\(method\s*>\s*4.5\)/);
-  assert.match(s,/mirrorReflection\(r,\s*t,\s*(specularEnabled|specularIntensity)\)/);
+  assert.match(s,/mirrorTunedReflection\(r,\s*t,\s*(specularEnabled|specularIntensity)\)/);
   assert.match(s,/t \* \(x \* .11\) \+ b \* \(y \* .009\)/);
  }
 });

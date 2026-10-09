@@ -29,12 +29,47 @@
  * The browser/display still decides the actually available HDR headroom.
  */
 
+/** Live, mirror-only optical controls. Relative values of 1 preserve preview13. */
+export type MirrorOptions = {
+  diffraction: number;
+  rainbowSpacing: number;
+  reflectionBlur: number;
+  directionality: number;
+  bubbles: number;
+  scratches: number;
+  ridgeWidth: number;
+  ridgeHeight: number;
+  /** Adaptation time constant in seconds; smaller is faster. Never disables motion. */
+  recoverySeconds: number;
+};
+export const DEFAULT_MIRROR_OPTIONS: Readonly<MirrorOptions> = Object.freeze({
+  diffraction: 0, rainbowSpacing: 1, reflectionBlur: 1, directionality: 1,
+  bubbles: 1, scratches: 1, ridgeWidth: 1, ridgeHeight: 1, recoverySeconds: 2.5,
+});
+export const MIRROR_OPTION_LIMITS: Readonly<Record<keyof MirrorOptions, readonly [number, number]>> = Object.freeze({
+  diffraction: [0, 2] as const, rainbowSpacing: [.25, 4] as const,
+  reflectionBlur: [0, 3] as const, directionality: [0, 2] as const,
+  bubbles: [0, 4] as const, scratches: [0, 4] as const,
+  ridgeWidth: [.25, 2] as const, ridgeHeight: [0, 3] as const,
+  recoverySeconds: [.25, 10] as const,
+});
+export function normalizeMirrorOptions(input?: Partial<MirrorOptions>): MirrorOptions {
+  const result = { ...DEFAULT_MIRROR_OPTIONS };
+  for (const key of Object.keys(result) as (keyof MirrorOptions)[]) {
+    const value = input?.[key], [min, max] = MIRROR_OPTION_LIMITS[key];
+    if (typeof value === "number" && Number.isFinite(value)) result[key] = Math.min(max, Math.max(min, value));
+  }
+  return result;
+}
+
 export const originalHdrShader = /* wgsl */ `
 struct Uniforms {
   worldFromDevice: mat4x4f,
   material: vec4f,
   // xy: backing-store resolution, z: original material method, w: intensity
   settings: vec4f,
+  mirrorA: vec4f, // diffraction, grating spacing, blur, directionality
+  mirrorB: vec4f, // bubbles, scratches, ridge width, ridge height
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -280,6 +315,57 @@ fn mirrorReflection(r: vec3f, tangent: vec3f, intensity: f32) -> f32 {
  return total;
 }
 
+// Tuned paths retain the original helper verbatim at preview13 defaults.
+fn mirrorRim(inward: f32) -> vec2f {
+ if (u.mirrorB.z == 1. && u.mirrorB.w == 1.) { return rimProfile(inward); }
+ let width = .128 * u.mirrorB.z;
+ let t = (inward - .018) / width;
+ if (t <= 0. || t >= 1.) { return vec2f(0.); }
+ let q = 1. - t;
+ return vec2f(64. * .0032 * u.mirrorB.w * t*t*t*q*q*q, (192. * .0032 * u.mirrorB.w / width) * t*t*q*q*(1. - 2.*t));
+}
+fn mirrorTunedHeight(x: f32, y: f32) -> f32 {
+ if (u.mirrorB.x == 1. && u.mirrorB.y == 1.) { return mirrorHeight(x, y); }
+ let b1 = exp(-((x + .63) * (x + .63) + (y - .12) * (y - .12)) / .0009);
+ let b2 = exp(-((x - .41) * (x - .41) + (y + .20) * (y + .20)) / .0004);
+ let b3 = exp(-((x - 1.13) * (x - 1.13) + (y - .03) * (y - .03)) / .000625);
+ let scratch = exp(-pow((y + .08 + .12 * x) / .003, 2.)) * exp(-pow((x + .14) / .21, 4.));
+ return (.00010 * b1 + .00007 * b2 + .00008 * b3) * u.mirrorB.x - .000008 * scratch * u.mirrorB.y;
+}
+fn mirrorTunedReflection(r: vec3f, tangent: vec3f, intensity: f32) -> f32 {
+ if (u.mirrorA.z == 1. && u.mirrorA.w == 1.) { return mirrorReflection(r, tangent, intensity); }
+ let projected = tangent - r * dot(tangent, r);
+ let t = projected / max(length(projected), .00001); let b = cross(r, t);
+ // Match angular variance at zero directionality (the two kernel axes have different weights).
+ let transverse = mix(.15556349186, .009, min(u.mirrorA.w, 1.)) / max(u.mirrorA.w, 1.);
+ var total = 0.;
+ for (var ix: i32 = -2; ix <= 2; ix++) { for (var iy: i32 = -1; iy <= 1; iy++) {
+  let x = f32(ix); let y = f32(iy);
+  let ray = normalize(r + t * (x * .11 * u.mirrorA.z) + b * (y * transverse * u.mirrorA.z));
+  let radiance = mirrorRoom(dot(ray, vec3f(.997884910,-.011350451,-.064006826)), dot(ray, vec3f(.062139647,.455690748,.887966557)), dot(ray, vec3f(.019088498,-.890065790,.455432235)), intensity);
+  total += radiance * mirrorWeight(x) * (2. - abs(y)) / 64.;
+ }}
+ return total;
+}
+// Tangential grating equation: kIncident_parallel = kSpecular_parallel + m*lambda/d*g.
+// Reconstruct the normal component, rejecting non-propagating orders. Wavelengths
+// and pitch are in micrometers. The same room, normal, viewer and surface tangent
+// supply neutral and colored reflections; there is no UV rainbow overlay.
+fn mirrorOrder(r: vec3f, n: vec3f, tangent: vec3f, wavelength: f32, order: f32, intensity: f32) -> f32 {
+ let g = normalize(tangent - n * dot(tangent, n));
+ let parallelRay = r - n * dot(r, n) + g * (order * wavelength / (1.2 * u.mirrorA.y));
+ let q = dot(parallelRay, parallelRay);
+ if (q >= 1.) { return 0.; }
+ let ray = parallelRay + n * sqrt(max(0., 1. - q));
+ let visibility = smoothstep(0., .08, 1. - q);
+ return mirrorTunedReflection(ray, tangent, intensity) * visibility;
+}
+fn mirrorDiffraction(r: vec3f, n: vec3f, tangent: vec3f, intensity: f32) -> vec3f {
+ let positive = vec3f(mirrorOrder(r,n,tangent,.650,1.,intensity), mirrorOrder(r,n,tangent,.530,1.,intensity), mirrorOrder(r,n,tangent,.460,1.,intensity));
+ let negative = vec3f(mirrorOrder(r,n,tangent,.650,-1.,intensity), mirrorOrder(r,n,tangent,.530,-1.,intensity), mirrorOrder(r,n,tangent,.460,-1.,intensity));
+ return .5 * (positive + negative);
+}
+
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
   let resolution = u.settings.xy;
   let method = u.settings.z;
@@ -300,12 +386,17 @@ fn mirrorReflection(r: vec3f, tangent: vec3f, intensity: f32) -> f32 {
   // Defects perturb only the sixth material's normal, never its flat macro face.
   if (method > 4.5) {
     if (al < .01) { return vec4f(0.); }
-    let micro = vec2f(mirrorHeight(p.x + .0005, p.y) - mirrorHeight(p.x - .0005, p.y), mirrorHeight(p.x, p.y + .0005) - mirrorHeight(p.x, p.y - .0005)) / .001;
+    let rim = mirrorRim(inward);
+    let micro = vec2f(mirrorTunedHeight(p.x + .0005, p.y) - mirrorTunedHeight(p.x - .0005, p.y), mirrorTunedHeight(p.x, p.y + .0005) - mirrorTunedHeight(p.x, p.y - .0005)) / .001;
     let n = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y - micro, 1.)), 0.)).xyz);
     let v = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
     let r = reflect(-v, n);
     let t = normalize((u.worldFromDevice * vec4f(1., 0., 0., 0.)).xyz);
-    let linear = .015 + .78 * mirrorReflection(r, t, specularIntensity);
+    let linear = .015 + .78 * mirrorTunedReflection(r, t, specularIntensity);
+    if (u.mirrorA.x > 0.) {
+      let color = vec3f(linear) + .78 * u.mirrorA.x * mirrorDiffraction(r, n, t, specularIntensity);
+      return vec4f(vec3f(stickerEncode(color.r), stickerEncode(color.g), stickerEncode(color.b)) * al, al);
+    }
     return vec4f(vec3f(stickerEncode(linear)) * al, al);
   }
   // Isolated fifth texture retains preview11's complete color path.
@@ -413,6 +504,7 @@ export type OriginalHdrOptions = {
   method: number;
   material: readonly number[];
   specular: () => number;
+  mirrorOptions?: () => Partial<MirrorOptions>;
   error: (message: string) => void;
 };
 
@@ -515,15 +607,15 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
       primitive: { topology: "triangle-list" },
     });
     if (stopped) throw new Error(failureMessage);
-    // mat4 (64 bytes), material vec4 (16), settings vec4 (16).
+    // mat4 (64 bytes), material/settings (32), two mirror option vec4s (32).
     // WebGPU's normative usage bits: UNIFORM=0x40, COPY_DST=0x08.
-    buffer = device.createBuffer({ size: 96, usage: 0x40 | 0x08 });
+    buffer = device.createBuffer({ size: 128, usage: 0x40 | 0x08 });
     const group = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer } }] });
     const validation = await device.popErrorScope();
     scopeOpen = false;
     if (validation) throw new Error(validation.message);
     if (stopped) throw new Error(failureMessage);
-    const values = new Float32Array(24);
+    const values = new Float32Array(32);
     values.set(options.material.slice(0, 4), 16);
     const frame = (now: number = performance.now()) => {
       if (stopped) return;
@@ -539,6 +631,9 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
           values.set([m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1]);
           const intensity = options.specular();
           values.set([width, height, options.method, Number.isFinite(intensity) ? Math.max(0, intensity) : 0], 20);
+          const mirror = normalizeMirrorOptions(options.mirrorOptions?.());
+          values.set([mirror.diffraction, mirror.rainbowSpacing, mirror.reflectionBlur, mirror.directionality,
+            mirror.bubbles, mirror.scratches, mirror.ridgeWidth, mirror.ridgeHeight], 24);
           device.queue.writeBuffer(buffer!, 0, values);
           const encoder = device.createCommandEncoder();
           const pass = encoder.beginRenderPass({ colorAttachments: [{

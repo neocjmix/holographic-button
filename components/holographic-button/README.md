@@ -1,4 +1,4 @@
-> v1.0.0-preview.13: isolated HDR preview, not published to npm. Sticker Foil restores its preview.11 color treatment while retaining adaptive lighting. New Satin Mirror adds an anisotropically blurred procedural environment reflection with subtle surface defects. All six share a rounded inset ridge twice the preview.12 width and height. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
+> v1.0.0-preview.14: isolated HDR preview, not published to npm. Satin Mirror keeps its preview.13 default and adds live optical sliders for diffraction, blur, surface defects, ridge dimensions and light recovery. See [preview notes](../../preview/v1/README.md) for all typed `mirrorOptions` fields and validation limits.
 
 # @neocjmix/holographic-button
 
@@ -137,3 +137,7 @@ Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.
 ### Satin Mirror
 
 Use `variant="satin-mirror"` for a neutral mirror with an original procedural room environment, anisotropic reflection blur, and subtle surface-attached bubbles and scratches. It shares the rounded inset rim and adaptive light recovery with Sticker Foil. Its HDR response extends the same reflected environment; no external texture fetch is required.
+
+### Live mirror tuning
+
+Pass `mirrorOptions` to `HolographicButton` with `variant="satin-mirror"`. `DEFAULT_MIRROR_OPTIONS` and `MIRROR_OPTION_LIMITS` are exported alongside the `MirrorOptions` type. Controls update live without recreating the renderer. Other materials ignore these options. Omit the prop to preserve preview.13 defaults, including diffraction off. See the [option table](../../preview/v1/README.md#live-controls) for defaults, bounds and diffraction performance considerations.

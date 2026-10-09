@@ -1,0 +1,16 @@
+/* Preview-only tuning layout. Original demo stylesheet and material CSS remain intact. */
+.docs-shell{overflow:clip}
+.tuning-layout{overflow:visible}
+.tuning-layout .live-stage{position:sticky;top:84px;align-self:start;min-height:420px;border-radius:0 25px 0 0}
+.tuning-layout .stage-meta{left:28px;right:28px;top:22px;transform:none}
+.mirror-tuning{min-width:0;margin:28px 0 0;padding:22px 0 0;border:0;border-top:1px solid #292b34}
+.mirror-tuning legend{padding:0 8px 0 0;color:#e3e4ed;font-size:12px;font-weight:650}
+.mirror-tuning>p{margin:4px 0 20px;color:#8e919d;font-size:12px;line-height:1.65}
+.mirror-tuning .range-field{margin-top:19px}
+.mirror-reset{margin-top:24px;width:100%;min-height:40px}
+@media(max-width:760px){
+ .tuning-layout .live-stage{grid-row:1;top:62px;z-index:5;min-height:260px;padding:42px 18px 18px;border-radius:25px 25px 0 0;border-bottom:1px solid #292b34}
+ .tuning-layout .control-panel{grid-row:2;border-bottom:0}
+ .tuning-layout .stage-meta{left:20px;right:20px;top:17px}
+ .tuning-layout .live-stage>p{margin-top:14px}
+}

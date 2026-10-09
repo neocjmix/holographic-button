@@ -25,7 +25,7 @@ function harness({hdr=true, configurationError=false, shaderError=false, validat
     async popErrorScope(){depth--;return validationError?{message:'validation failed'}:null},
     createShaderModule({code}){assert.ok(code.includes('fn ggxAniso'));return{async getCompilationInfo(){return{messages:shaderError?[{type:'error',message:'shader failed'}]:[]}}}},
     async createRenderPipelineAsync(){return{getBindGroupLayout(){return{}}}},
-    createBuffer({size,usage}){assert.equal(size,96);assert.equal(usage,72);return{destroy(){destroyed++}}},
+    createBuffer({size,usage}){assert.equal(size,128);assert.equal(usage,72);return{destroy(){destroyed++}}},
     createBindGroup(){return{}},
     createCommandEncoder(){return{beginRenderPass(descriptor){lastPass=descriptor;return{setPipeline(){},setBindGroup(){},draw(n){assert.equal(n,3);drawn++},end(){}}},finish(){return{}}}},
     queue:{writeBuffer(_buffer,_offset,values){lastValues=Array.from(values)},submit(){}},
@@ -64,7 +64,7 @@ test('live matrix/intensity use original column-major packing, resize, transpare
  const stop=await createOriginalHdrRenderer(canvas,options({matrix:()=>m,method:3,material:[1.18,1.05,.09,1],specular:()=>intensity}));
  h.frame();assert.equal(canvas.width,480);assert.equal(canvas.height,120);
  assert.deepEqual(h.state.lastValues.slice(0,16),[1,2,3,0,4,5,6,0,7,8,9,0,0,0,0,1]);
- assert.deepEqual(h.state.lastValues.slice(20),[480,120,3,2.5]);
+ assert.deepEqual(h.state.lastValues.slice(20,24),[480,120,3,2.5]);
  assert.equal(h.state.lastValues[19],1);assert.deepEqual(h.state.lastPass.colorAttachments[0].clearValue,{r:0,g:0,b:0,a:0});
  intensity=0;h.frame();assert.equal(h.state.lastValues[23],0);
  intensity=NaN;h.frame();assert.equal(h.state.lastValues[23],0);
@@ -366,4 +366,21 @@ test('all SDR and HDR paths premultiply only geometric coverage at the output',(
   assert.equal(color*alpha,alpha===1?color:color*alpha);
   if(alpha===0)assert.equal(color*alpha,0);
  }
+});
+
+test('mirror options stream through the same GPU pipeline and buffer on every frame',async()=>{
+ const h=harness();const {createOriginalHdrRenderer,DEFAULT_MIRROR_OPTIONS}=await load();
+ let config={},pipelines=0,buffers=0;
+ const pipeline=h.device.createRenderPipelineAsync,buffer=h.device.createBuffer;
+ h.device.createRenderPipelineAsync=async(...args)=>{pipelines++;return pipeline(...args)};
+ h.device.createBuffer=(...args)=>{buffers++;return buffer(...args)};
+ const stop=await createOriginalHdrRenderer(h.makeCanvas(),options({method:5,mirrorOptions:()=>config}));
+ h.frame();assert.deepEqual(h.state.lastValues.slice(24),[0,1,1,1,1,1,1,1]);
+ config={diffraction:2,rainbowSpacing:4,reflectionBlur:3,directionality:0,bubbles:0,scratches:4,ridgeWidth:2,ridgeHeight:3};
+ h.frame();assert.deepEqual(h.state.lastValues.slice(24),[2,4,3,0,0,4,2,3]);
+ config={diffraction:NaN,rainbowSpacing:-100,reflectionBlur:Infinity,directionality:200,bubbles:-20,scratches:NaN,ridgeWidth:Infinity,ridgeHeight:-1};
+ h.frame();assert.deepEqual(h.state.lastValues.slice(24),[0,.25,1,2,0,1,1,0]);
+ config=DEFAULT_MIRROR_OPTIONS;h.frame();assert.deepEqual(h.state.lastValues.slice(24),[0,1,1,1,1,1,1,1]);
+ assert.equal(pipelines,1);assert.equal(buffers,1);assert.equal(h.state.adapterRequests,1);assert.equal(h.state.destroyed,0);
+ stop();stop();assert.equal(h.state.destroyed,1);assert.equal(h.state.frames,0);
 });

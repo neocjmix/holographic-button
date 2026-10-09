@@ -1,7 +1,7 @@
 "use client";
 
 import {useMemo,useState} from "react";
-import {HolographicButton,type HolographicVariant,useHolographicMotion} from "@neocjmix/holographic-button";
+import {HolographicButton,type HolographicVariant,type MirrorOptions,DEFAULT_MIRROR_OPTIONS,useHolographicMotion} from "@neocjmix/holographic-button";
 
 const PACKAGE="@neocjmix/holographic-button";
 const variants:{value:HolographicVariant;label:string;note:string}[]=[
@@ -11,6 +11,17 @@ const variants:{value:HolographicVariant;label:string;note:string}[]=[
  {value:"brushed-foil",label:"Brushed",note:"Directional metal grain"},
  {value:"thin-film",label:"Pearl",note:"Clean thin-film gradient"},
  {value:"facet-chrome",label:"Prism",note:"Fragmented chrome facets"},
+];
+const mirrorControls:{key:keyof MirrorOptions;label:string;min:number;max:number;step:number;unit?:string}[]=[
+ {key:"diffraction",label:"회절 강도",min:0,max:2,step:.02},
+ {key:"rainbowSpacing",label:"회절 격자 간격",min:.25,max:4,step:.05},
+ {key:"reflectionBlur",label:"반사 블러",min:0,max:3,step:.05},
+ {key:"directionality",label:"블러 방향성",min:0,max:2,step:.02},
+ {key:"bubbles",label:"미세 기포",min:0,max:4,step:.05},
+ {key:"scratches",label:"미세 흠집",min:0,max:4,step:.05},
+ {key:"ridgeWidth",label:"테두리 요철 폭",min:.25,max:2,step:.05},
+ {key:"ridgeHeight",label:"테두리 돌출 높이",min:0,max:3,step:.05},
+ {key:"recoverySeconds",label:"각도 회복 시간",min:.25,max:10,step:.25,unit:"s"},
 ];
 const installCommands={npm:"npm install "+PACKAGE,pnpm:"pnpm add "+PACKAGE,yarn:"yarn add "+PACKAGE,bun:"bun add "+PACKAGE};
 
@@ -31,6 +42,7 @@ export default function Home(){
  const[width,setWidth]=useState(560);
  const[height,setHeight]=useState(148);
  const[specular,setSpecular]=useState(5);
+ const[mirrorOptions,setMirrorOptions]=useState<MirrorOptions>(()=>({...DEFAULT_MIRROR_OPTIONS}));
  const[disabled,setDisabled]=useState(false);
  const[manager,setManager]=useState<keyof typeof installCommands>("npm");
  const[activated,setActivated]=useState(0);
@@ -42,16 +54,17 @@ export default function Home(){
   '  return (','    <HolographicButton','      motion={motion}','      variant="'+variant+'"',
   '      width="min(100%, '+width+'px)"','      height={'+height+'}',
   '      specular={'+specular+'}',
+  ...(variant==="satin-mirror"?['      mirrorOptions={{',...Object.entries(mirrorOptions).map(([key,value])=>'        '+key+': '+value+','),'      }}']:[]),
   disabled?'      disabled':'',
   '      onClick={() => alert("Activated")}','    >','      '+label,'    </HolographicButton>','  );','}'
- ].filter(Boolean).join("\n"),[variant,width,height,specular,disabled,label]);
+ ].filter(Boolean).join("\n"),[variant,width,height,specular,disabled,label,mirrorOptions]);
 
  return <main className="docs-shell">
   <nav className="topbar" aria-label="Primary navigation">
-   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.13</em></a>
+   <a className="brand" href="#top"><span className="brand-mark"/><b>Holographic Button</b><em>v1.0.0-preview.14</em></a>
    <div className="nav-links"><a href="#playground">Playground</a><a href="#install">Install</a><a href="#api">API</a><a href="https://github.com/neocjmix/holographic-button" target="_blank" rel="noreferrer">GitHub ↗</a></div>
   </nav>
-  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.13 as experimental and audit it before production use.</p></aside>
+  <aside className="ai-warning" aria-label="AI-generated code warning"><strong>UNREVIEWED AI OUTPUT</strong><p>This implementation and its documentation were generated entirely by AI. No human has reviewed the code yet. This isolated preview is not published to npm. HDR is used on supported displays and browsers, with the original WebGL renderer as fallback. Treat v1.0.0-preview.14 as experimental and audit it before production use.</p></aside>
 
   <section className="hero-section" id="top">
    <div className="hero-copy">
@@ -70,7 +83,7 @@ export default function Home(){
 
   <section className="playground section-frame" id="playground">
    <div className="section-intro"><p className="section-index">01 / PLAYGROUND</p><h2>Tune it in place.</h2><p>Change the public props and copy the exact React code. Sensor input is automatic; desktop pointer movement uses the same reflection model.</p></div>
-   <div className="playground-grid">
+   <div className="playground-grid tuning-layout">
     <div className="control-panel">
      <div className="control-group"><span className="control-label">Material</span><div className="segment-grid">{variants.map(item=><button key={item.value} className={variant===item.value?"selected":""} onClick={()=>setVariant(item.value)}><b>{item.label}</b><small>{item.note}</small></button>)}</div></div>
      <div className="field-grid">
@@ -80,10 +93,16 @@ export default function Home(){
      <label className="range-field"><span>Width <b>{width}px</b></span><input type="range" min="280" max="680" step="10" value={width} onChange={e=>setWidth(Number(e.target.value))}/></label>
      <label className="range-field"><span>Height <b>{height}px</b></span><input type="range" min="96" max="200" step="2" value={height} onChange={e=>setHeight(Number(e.target.value))}/></label>
      <label className="range-field"><span>Surface specular <b>{specular.toFixed(2)}×</b></span><input aria-label="Surface specular intensity" type="range" min="0" max="10" step="0.05" value={specular} onChange={e=>setSpecular(Number(e.target.value))}/></label>
+     {variant==="satin-mirror"&&<fieldset className="mirror-tuning" aria-label="Satin Mirror optical controls">
+      <legend>거울 광학 조절</legend>
+      <p>기본값은 프리뷰 13 그대로. 회절 0은 회색 거울이야. 격자 간격이 커지면 색이 벌어지는 각도는 좁아져. 방향성 0은 균일한 블러, 회복 시간은 작을수록 빨라져.</p>
+      {mirrorControls.map(control=><label className="range-field" key={control.key}><span>{control.label}<b>{mirrorOptions[control.key].toFixed(2)}{control.unit??"×"}</b></span><input aria-label={control.label} type="range" min={control.min} max={control.max} step={control.step} value={mirrorOptions[control.key]} onChange={e=>setMirrorOptions(previous=>({...previous,[control.key]:Number(e.target.value)}))}/></label>)}
+      <button className="copy-button mirror-reset" type="button" onClick={()=>{setMirrorOptions({...DEFAULT_MIRROR_OPTIONS});setSpecular(5)}}>광학 기본값 복원</button>
+     </fieldset>}
     </div>
     <div className="live-stage">
      <div className="stage-meta"><span>RESULT</span><em>{variant.replace("-"," ")}</em></div>
-     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} specular={specular} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
+     <HolographicButton motion={motion} variant={variant} width={"min(100%, "+width+"px)"} height={height} specular={specular} mirrorOptions={variant==="satin-mirror"?mirrorOptions:undefined} disabled={disabled} onClick={()=>setActivated(v=>v+1)}>{label||"BUTTON"}</HolographicButton>
      <p>{disabled?"DISABLED · NATIVE STATE":activated?"EVENT RECEIVED × "+activated:"CLICK, TAP, FOCUS, OR SUBMIT LIKE A BUTTON"}</p>
     </div>
    </div>
@@ -106,8 +125,8 @@ export default function Home(){
   </section>
 
   <section className="materials section-frame" id="materials">
-   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Six optical models.</h2><p>Satin Mirror reflects a softly blurred environment with subtle surface imperfections. Sticker Foil restores the preview11 texture. Both keep adaptive lighting; all six share the enlarged rounded inset rim.</p></div>
-   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} specular={item.value==="sticker-foil"||item.value==="satin-mirror"?5:1} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
+   <div className="section-intro compact"><p className="section-index">03 / MATERIALS</p><h2>Six optical models.</h2><p>Satin Mirror starts with the unchanged preview13 surface. Tune its diffraction, blur, defects, rim and recovery above; its gallery sample follows the same settings. Other materials retain their presets.</p></div>
+   <div className="material-grid">{variants.map((item,index)=><article key={item.value}><div><span>{"0"+(index+1)}</span><h3>{item.label}</h3><p>{item.note}</p></div><HolographicButton motion={motion} variant={item.value} mirrorOptions={item.value==="satin-mirror"?mirrorOptions:undefined} specular={item.value==="satin-mirror"?specular:item.value==="sticker-foil"?5:1} height={112} onClick={()=>setActivated(v=>v+1)}>{item.label.toUpperCase()}</HolographicButton></article>)}</div>
   </section>
 
   <section className="api section-frame" id="api">
@@ -120,6 +139,7 @@ export default function Home(){
       ["children","ReactNode","ACTIVATE","Visible primary content."],
       ["width","CSS width","CSS default","Number or any CSS width."],
       ["height","CSS height","CSS default","Number or any CSS height."],
+      ["mirrorOptions","Partial<MirrorOptions>","preview13","Live optical tuning for Satin Mirror only; omit to preserve its baseline."],
       ["specular","number | boolean","1","Highlight strength: 0 = off, 1 = original, above 1 = stronger. Boolean values remain supported."],
      ].map(row=><div className="api-row" role="row" key={row[0]}><code>{row[0]}</code><span>{row[1]}</span><em>{row[2]}</em><p>{row[3]}</p></div>)}
     </div><div className="native-strip"><b>Also forwards</b><span>on*</span><span>disabled</span><span>type / name / value / form</span><span>aria-* / data-*</span><span>className / style / ref</span></div></div>

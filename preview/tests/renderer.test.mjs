@@ -13,6 +13,19 @@ test('preserve texture segment float hash(v',async()=>{const now=await readFile(
 
 test("original preset values stay intact beside new foil",async()=>{const s=await readFile("components/holographic-button/index.tsx","utf8");for(const value of ['"spectral-film":{method:0,material:[.08,.72,.11,.55]}','"brushed-foil":{method:1,material:[.46,.48,.23,.82]}','"thin-film":{method:2,material:[.78,.62,.18,.32]}','"facet-chrome":{method:3,material:[1.18,1.05,.09,1]}'])assert.ok(s.includes(value));assert.ok(s.includes('"sticker-foil":{method:4'))});
 
-test('foil preview starts at accepted strength five without changing API defaults',async()=>{const demo=await readFile('app/page.tsx','utf8');assert.match(demo,/const\[specular,setSpecular\]=useState\(5\)/);assert.ok(demo.includes('specular={item.value==="sticker-foil"||item.value==="satin-mirror"?5:1}'));});
+test('foil preview starts at accepted strength five without changing API defaults',async()=>{const demo=await readFile('app/page.tsx','utf8');assert.match(demo,/const\[specular,setSpecular\]=useState\(5\)/);assert.ok(demo.includes('specular={item.value==="satin-mirror"?specular:item.value==="sticker-foil"?5:1}'));});
 
 test('new mirror is available beside all existing demo materials',async()=>{const demo=await readFile('app/page.tsx','utf8');assert.match(demo,/useState<HolographicVariant>\("satin-mirror"\)/);for(const name of ['Satin Mirror','Sticker Foil','Spectral','Brushed','Pearl','Prism'])assert.ok(demo.includes('label:"'+name+'"'));assert.match(demo,/6 MATERIALS/);});
+
+test('mirror tuning exposes nine live controls with reset and copied options',async()=>{
+ const demo=await readFile('app/page.tsx','utf8');
+ for(const key of ['diffraction','rainbowSpacing','reflectionBlur','directionality','bubbles','scratches','ridgeWidth','ridgeHeight','recoverySeconds'])assert.ok(demo.includes('key:"'+key+'"'));
+ assert.match(demo,/setMirrorOptions\(\{\.\.\.DEFAULT_MIRROR_OPTIONS\}\);setSpecular\(5\)/);
+ assert.match(demo,/Object\.entries\(mirrorOptions\)/);
+ assert.match(demo,/mirrorOptions=\{variant==="satin-mirror"\?mirrorOptions:undefined\}/);
+ assert.match(demo,/mirrorOptions=\{item\.value==="satin-mirror"\?mirrorOptions:undefined\}/);
+ const css=await readFile('preview/v1/tuning.css','utf8');
+ assert.match(css,/\.docs-shell\{overflow:clip\}/);
+ assert.match(css,/position:sticky/);
+ assert.match(await readFile('preview/v1/lab.tsx','utf8'),/import "\.\/tuning\.css"/);
+});
