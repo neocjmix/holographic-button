@@ -7,6 +7,11 @@ import {toSliderValue,fromSliderValue,formatOpticalValue,matchesPreset} from "./
 
 const PACKAGE="@neocjmix/holographic-button";
 const SATIN_PRESET=DEMO_OPTICAL_PRESETS.find(preset=>preset.id==="satin-mirror")!;
+const HERO_OPTICAL_OPTIONS:OpticalOptions={
+ diffraction:1.95,rainbowSpacing:0.4569157,reflectionBlur:0.64,directionality:1.55,
+ bubbles:4.862712,scratches:0,ridgeWidth:1,ridgeHeight:1,recoverySeconds:2.5,
+ iridescence:0.74,facetStrength:0,facetScale:2,gratingAngle:51,
+};
 const controlGroups=[
  {id:"surface",label:"Surface and reflections",note:"Adjust reflection sharpness, directionality, and surface relief."},
  {id:"pattern",label:"Pattern and microstructure",note:"Shape the same surface with diffraction and fine relief."},
@@ -73,7 +78,7 @@ export default function Home(){
    </div>
    <div className="hero-object">
     <p>LIVE MATERIAL <span>MOVE YOUR DEVICE</span></p>
-    <HolographicButton motion={motion} variant="satin-mirror" opticalOptions={DEFAULT_OPTICAL_OPTIONS} specular={5} width="min(100%, 620px)" height={164} onClick={()=>setActivated(v=>v+1)}>ENTER</HolographicButton>
+    <HolographicButton motion={motion} variant="satin-mirror" opticalOptions={HERO_OPTICAL_OPTIONS} specular={4.7} width="min(100%, 560px)" height={148} onClick={()=>setActivated(v=>v+1)}>A LITTLE TOO MUCH BUTTON</HolographicButton>
     <small>{activated?"ACTIVATED × "+activated:"NATIVE BUTTON · TAP TO TEST"}</small>
    </div>
   </section>

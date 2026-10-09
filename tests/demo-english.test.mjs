@@ -60,6 +60,33 @@ const optical=key=>node=>node.type==='input'&&node.props['data-optical-control']
 const button=text=>node=>node.type==='button'&&node.props.children===text;
 const presetButton=id=>node=>node.type==='button'&&node.key===id;
 
+test('hero uses the exact custom preset without changing playground defaults or activation',()=>{
+ resetState();let state=render();
+ const heroSection=element(state,node=>node.props?.id==='top');
+ const hero=find(heroSection,node=>node.props?.children==='A LITTLE TOO MUCH BUTTON');
+ assert.ok(hero,'hero button exists');
+ assert.equal(hero.props.variant,'satin-mirror');
+ assert.equal(hero.props.width,'min(100%, 560px)');
+ assert.equal(hero.props.height,148);
+ assert.equal(hero.props.specular,4.7);
+ assert.deepEqual(hero.props.opticalOptions,{
+  diffraction:1.95,rainbowSpacing:0.4569157,reflectionBlur:0.64,directionality:1.55,
+  bubbles:4.862712,scratches:0,ridgeWidth:1,ridgeHeight:1,recoverySeconds:2.5,
+  iridescence:0.74,facetStrength:0,facetScale:2,gratingAngle:51,
+ });
+ const playground=element(state,node=>node.props?.id==='playground');
+ const live=find(playground,node=>node.props?.variant==='satin-mirror');
+ assert.equal(live.props.children,'ACTIVATE');
+ assert.equal(live.props.width,'min(100%, 560px)');
+ assert.equal(live.props.height,148);
+ assert.equal(live.props.specular,5);
+ assert.deepEqual(live.props.opticalOptions,DEFAULT_OPTICAL_OPTIONS);
+ hero.props.onClick();state=render();
+ assert.ok(state.html.includes('ACTIVATED × 1'));
+ hero.props.onClick();state=render();
+ assert.ok(state.html.includes('ACTIVATED × 2'));
+});
+
 test('English presentation covers every preset and control without changing package metadata or values',()=>{
  assert.equal(DEMO_OPTICAL_PRESETS.length,OPTICAL_PRESETS.length);
  assert.equal(DEMO_OPTICAL_CONTROLS.length,OPTICAL_CONTROLS.length);
@@ -135,7 +162,7 @@ test('conditional hints and all slider value text stay English across edits',()=
 
 test('activation, disabled state, package-manager commands, and generated examples stay English',()=>{
  resetState();let state=english(render());
- state=english(click(state,node=>typeof node.props?.onClick==='function'&&node.props.children==='ENTER'));
+ state=english(click(state,node=>typeof node.props?.onClick==='function'&&node.props.children==='A LITTLE TOO MUCH BUTTON'));
  assert.match(state.html,/ACTIVATED × 1/);
  assert.match(state.html,/EVENT RECEIVED × 1/);
  state=english(click(state,node=>node.props?.role==='switch'));
