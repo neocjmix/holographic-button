@@ -14,3 +14,6 @@
  .tuning-layout .stage-meta{left:20px;right:20px;top:17px}
  .tuning-layout .live-stage>p{margin-top:14px}
 }
+.mirror-tuning .range-field>span{font-size:12px;letter-spacing:0;text-transform:none}
+.mirror-tuning input[type=range]{height:28px}
+.mirror-reset{min-height:44px}
