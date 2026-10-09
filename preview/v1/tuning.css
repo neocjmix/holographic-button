@@ -2,18 +2,33 @@
 .docs-shell{overflow:clip}
 .tuning-layout{overflow:visible}
 .tuning-layout .live-stage{position:sticky;top:84px;align-self:start;min-height:420px;border-radius:0 25px 0 0}
-.tuning-layout .stage-meta{left:28px;right:28px;top:22px;transform:none}
-.mirror-tuning{min-width:0;margin:28px 0 0;padding:22px 0 0;border:0;border-top:1px solid #292b34}
-.mirror-tuning legend{padding:0 8px 0 0;color:#e3e4ed;font-size:12px;font-weight:650}
-.mirror-tuning>p{margin:4px 0 20px;color:#8e919d;font-size:12px;line-height:1.65}
-.mirror-tuning .range-field{margin-top:19px}
-.mirror-reset{margin-top:24px;width:100%;min-height:40px}
+.tuning-layout .stage-meta{left:28px;right:28px;top:22px;transform:none;gap:18px;line-height:1.5}
+.tuning-layout .stage-meta em{text-align:right}
+.preset-grid{margin-bottom:14px}
+.preset-grid small{font-family:inherit;font-size:10px;line-height:1.55;color:#9396a1}
+.preset-status{display:flex;flex-wrap:wrap;gap:5px 10px;margin:0;color:#9295a0;font-size:11px;line-height:1.65}
+.preset-status b{color:#d0cadf;font-weight:600}
+.preset-actions{display:flex;flex-wrap:wrap;gap:8px;margin:13px 0 26px}
+.preset-actions .copy-button{flex:1;min-height:44px;padding:10px;font-family:inherit;font-size:11px;letter-spacing:0}
+.preset-actions .satin-reset{color:#e0daed;border-color:#655d7a;background:#1c1925}
+.preset-actions .copy-button:disabled{opacity:.4;cursor:default}
+.tuning-note{margin:24px 0 0;color:#9497a3;font-size:12px;line-height:1.75}
+.optical-tuning{min-width:0;margin:28px 0 0;padding:20px 0 0;border:0;border-top:1px solid #292b34}
+.optical-tuning legend{padding:0 10px 0 0;color:#e3e4ed;font-size:13px;font-weight:650}
+.optical-tuning>p{margin:0 0 20px;color:#9295a0;font-size:12px;line-height:1.75}
+.optical-tuning .range-field{margin-top:23px}
+.optical-tuning .range-field>span{font-size:12px;letter-spacing:0;text-transform:none;gap:12px;line-height:1.5;margin-bottom:3px}
+.optical-tuning .range-field>span b{white-space:nowrap;font-variant-numeric:tabular-nums}
+.optical-tuning input[type=range]{height:28px;cursor:pointer}
+.control-hint{display:block;margin-top:2px;color:#858a99;font:400 11px/1.7 Arial,Helvetica,sans-serif}
+.control-hint.contextual-hint{margin-top:5px;color:#b2a3c9}
+.preset-grid button:focus-visible,.preset-actions button:focus-visible,.optical-tuning input:focus-visible{outline:2px solid #c0b4e1;outline-offset:3px}
 @media(max-width:760px){
  .tuning-layout .live-stage{grid-row:1;top:62px;z-index:5;min-height:260px;padding:42px 18px 18px;border-radius:25px 25px 0 0;border-bottom:1px solid #292b34}
  .tuning-layout .control-panel{grid-row:2;border-bottom:0}
  .tuning-layout .stage-meta{left:20px;right:20px;top:17px}
  .tuning-layout .live-stage>p{margin-top:14px}
+ .preset-grid{grid-template-columns:1fr 1fr}
+ .preset-grid button{padding:11px;min-height:80px}
+ .optical-tuning .range-field{margin-top:25px}
 }
-.mirror-tuning .range-field>span{font-size:12px;letter-spacing:0;text-transform:none}
-.mirror-tuning input[type=range]{height:28px}
-.mirror-reset{min-height:44px}

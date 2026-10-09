@@ -29,7 +29,7 @@ test('sixth style keeps the baseline helpers and isolates adaptive recovery',()=
  assert.match(componentSource,/preset.method===4\?foilRecoveryMatrix/);
  for(const s of [glsl,wgsl]){
   assert.match(s,/if\s*\(method\s*>\s*4.5\)/);
-  assert.match(s,/mirrorTunedReflection\(r,\s*t,\s*(specularEnabled|specularIntensity)\)/);
+  assert.match(s,/opticalRadiance\(r,\s*n,\s*t,\s*grid.z,\s*(specularEnabled|specularIntensity)\)/);
   assert.match(s,/t \* \(x \* .11\) \+ b \* \(y \* .009\)/);
  }
 });

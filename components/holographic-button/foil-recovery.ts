@@ -43,7 +43,7 @@ export function createFoilRecovery() {
    // old light but reflects any new device attitude immediately.
    const dt=elapsed>.25?0:Math.min(elapsed,.1);
    if(Number.isFinite(now))last=now;
-   const seconds=Number.isFinite(recoverySeconds)?Math.min(10,Math.max(.25,recoverySeconds)):2.5;
+   const seconds=Number.isFinite(recoverySeconds)?Math.min(30,Math.max(.1,recoverySeconds)):2.5;
    correction=slerp(correction,desired,-Math.expm1(-dt/seconds));
    output=matrix(multiply(correction,device));
    return output;

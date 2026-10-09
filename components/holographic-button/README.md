@@ -1,4 +1,4 @@
-> v1.0.0-preview.14: isolated HDR preview, not published to npm. Satin Mirror keeps its preview.13 default and adds live optical sliders for diffraction, blur, surface defects, ridge dimensions and light recovery. See [preview notes](../../preview/v1/README.md) for all typed `mirrorOptions` fields and validation limits.
+> v1.0.0-preview.15: isolated HDR preview, not published to npm. One configurable optical shader now supplies Satin Mirror, Card Foil, Grid Prism and Smooth Prism through numeric presets. The accepted neutral default remains intact. See [preview notes](../../preview/v1/README.md) for ranges, limitations and verification.
 
 # @neocjmix/holographic-button
 
@@ -81,6 +81,8 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 | `width` | `CSSProperties["width"]` | CSS default | Convenience width override. |
 | `height` | `CSSProperties["height"]` | CSS default | Convenience height override. |
 | `specular` | `number \| boolean` | `1` | Highlight strength: 0 off, 1 original, above 1 stronger. |
+| `opticalOptions` | `Partial<OpticalOptions>` | Satin Mirror defaults | Live unified optics on `satin-mirror`; other variants ignore it. |
+| `mirrorOptions` | `Partial<MirrorOptions>` | mirror defaults | Legacy nine-field tuning alias; `opticalOptions` wins when both set the same field. |
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission. Plain text inherits the default black label treatment; `children` remains a `ReactNode`, so styled JSX, icons, and custom label structures can provide their own colors.
 
@@ -88,7 +90,7 @@ The broad, neutral metal specular preset is part of the material design rather t
 
 The internal preset is informed by common PBR material concepts but uses a compact custom WebGL 1 approximation rather than claiming glTF conformance.
 
-Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, and `sticker-foil`.
+Variants: `spectral-film`, `brushed-foil`, `thin-film`, `facet-chrome`, `sticker-foil`, and `satin-mirror`.
 
 Sticker Foil treats its reference-derived rainbow field and enlarged diamond pattern as colored reflected light. Its color and brightness respond to a common light/view configuration; it no longer overlays a separate silver-white state. The demo starts at strength 5 and retains its 0–10 control. The component API default remains 1. HDR output depends on display headroom and is not a calibrated luminance multiple.
 
@@ -138,6 +140,26 @@ Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.
 
 Use `variant="satin-mirror"` for a neutral mirror with an original procedural room environment, anisotropic reflection blur, and subtle surface-attached bubbles and scratches. It shares the rounded inset rim and adaptive light recovery with Sticker Foil. Its HDR response extends the same reflected environment; no external texture fetch is required.
 
-### Live mirror tuning
+### Unified optical presets
 
-Pass `mirrorOptions` to `HolographicButton` with `variant="satin-mirror"`. `DEFAULT_MIRROR_OPTIONS` and `MIRROR_OPTION_LIMITS` are exported alongside the `MirrorOptions` type. Controls update live without recreating the renderer. Other materials ignore these options. Omit the prop to preserve preview.13 defaults, including diffraction off. See the [option table](../../preview/v1/README.md#live-controls) for defaults, bounds and diffraction performance considerations.
+Use `variant="satin-mirror"` and `opticalOptions`. Every preset uses the same shader, normal, procedural room, rounded ridge and recovery state; preset names are never passed to the GPU. The four added parameters are coating density (`iridescence`), attached-cell micro-normal/phase strength (`facetStrength`), cells per face height (`facetScale`), and shared grating/grid/blur orientation (`gratingAngle`, degrees).
+
+```tsx
+import {HolographicButton, OPTICAL_PRESETS} from "@neocjmix/holographic-button";
+
+const foil = OPTICAL_PRESETS.find(preset => preset.id === "card-foil")!;
+<HolographicButton
+  motion={motion}
+  variant="satin-mirror"
+  opticalOptions={foil.options}
+  specular={foil.specular}
+>ACTIVATE</HolographicButton>;
+```
+
+`DEFAULT_OPTICAL_OPTIONS`, `OPTICAL_OPTION_LIMITS`, `OPTICAL_PRESETS`, `OPTICAL_CONTROLS`, `normalizeOpticalOptions`, and their types are exported. Presets are immutable complete starting values; copy and edit them freely. Controls use refs and uniform updates without replacing GPU resources or restarting recovery. Omitted, non-number and non-finite fields use defaults; finite values clamp to the exported bounds.
+
+`MirrorOptions`, `DEFAULT_MIRROR_OPTIONS`, `MIRROR_OPTION_LIMITS` and the original variant names remain compatible. Legacy `mirrorOptions` keeps its original nine-field shape and accepts the newly expanded ranges. It is merged before `opticalOptions`; the latter takes precedence per field. The package default variant remains `spectral-film`; the preview explicitly selects `satin-mirror`.
+
+This is a stylized reflective material, not measured card-foil optics or a transmitting glass model. Thin-film-like color modulates the same reflected room radiance; wavelength/order diffraction reuses that room. No artwork, card texture, or external asset is fetched. Color coating and diffraction share `rainbowSpacing`: smaller values increase angular coating cycles, while propagating diffraction orders follow wavelength/pitch geometry. At sufficiently small pitch, non-propagating order energy remains in the neutral reflection. The grating angle also rotates anisotropic blur and the attached cell grid.
+
+The unchanged default has zero diffraction, zero coating and zero facets. Its original room, blur, defects and rounded ridge helpers are retained. SDR uses an RGB-wide shoulder, equal to the original scalar curve for gray; HDR encodes the same linear RGB directly. Both paths keep geometric premultiplied alpha. See the [range table and verification limits](../../preview/v1/README.md#optical-ranges) before relying on extreme settings or mobile performance.

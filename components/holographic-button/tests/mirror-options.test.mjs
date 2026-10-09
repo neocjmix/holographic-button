@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {opticalModel} from './optical-reference.mjs';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
@@ -16,38 +17,8 @@ const mul=(a,k)=>a.map(v=>v*k);
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
 const basis=models[0][1].basis;
 export function analytical(source,language,options={}) {
- const o=clean(options),A={x:o.diffraction,y:o.rainbowSpacing,z:o.reflectionBlur,w:o.directionality},B={x:o.bubbles,y:o.scratches,z:o.ridgeWidth,w:o.ridgeHeight};
- const bindings={exp:Math.exp,step:(e,x)=>x<e?0:1,mirrorA:A,mirrorB:B,u:{mirrorA:A,mirrorB:B}};
- const functions={};
- for(const [name,args]of Object.entries({mirrorRect:['x','y','cx','cy','hx','hy'],mirrorRoom:['horizontal','vertical','forward','intensity'],mirrorWeight:['i'],mirrorHeight:['x','y'],rimProfile:['inward'],mirrorRim:['inward'],mirrorTunedHeight:['x','y']})){
-  const kind=language==='wgsl'?'fn':name.includes('Rim')||name==='rimProfile'?'vec2':'float';
-  functions[name]=scalarFunction(source,`${kind} ${name}(`,args,{...bindings,...functions});
- }
- const reflection=(r,tangent,intensity)=>{
-  const t=norm(sub(tangent,mul(r,dot(tangent,r)))),b=cross(r,t);
-  const transverse=(.15556349186*(1-Math.min(o.directionality,1))+.009*Math.min(o.directionality,1))/Math.max(o.directionality,1);
-  let total=0;
-  for(let x=-2;x<=2;x++)for(let y=-1;y<=1;y++){
-   const ray=norm(add(add(r,mul(t,x*.11*o.reflectionBlur)),mul(b,y*transverse*o.reflectionBlur)));
-   total+=functions.mirrorRoom(...basis.map(a=>dot(ray,a)),intensity)*functions.mirrorWeight(x)*(2-Math.abs(y))/64;
-  }return total;
- };
- const order=(r,n,t,wavelength,order,intensity)=>{
-  const g=norm(sub(t,mul(n,dot(t,n)))),parallel=add(sub(r,mul(n,dot(r,n))),mul(g,order*wavelength/(1.2*o.rainbowSpacing))),q=dot(parallel,parallel);
-  if(q>=1)return 0;
-  const ray=add(parallel,mul(n,Math.sqrt(Math.max(0,1-q))));
-  return reflection(ray,t,intensity)*smoothstep(0,.08,1-q);
- };
- const shade=(pose=[62.9,1.1,0],x=0,y=0)=>{
-  const mat=attitude(pose),world=v=>[0,1,2].map(i=>mat[i]*v[0]+mat[i+3]*v[1]+mat[i+6]*v[2]);
-  const uv=[x/4+.5,.5-y],eps=.00001;
-  const dx=(distance([uv[0]+eps/4,uv[1]],4)-distance([uv[0]-eps/4,uv[1]],4))/(2*eps),dy=(distance([uv[0],uv[1]-eps],4)-distance([uv[0],uv[1]+eps],4))/(2*eps),gd=norm([dx+.00001,dy+.00001]);
-  const slope=functions.mirrorRim(Math.max(0,-distance(uv,4)))[1];
-  const micro=[(functions.mirrorTunedHeight(x+.0005,y)-functions.mirrorTunedHeight(x-.0005,y))/.001,(functions.mirrorTunedHeight(x,y+.0005)-functions.mirrorTunedHeight(x,y-.0005))/.001];
-  const n=norm(world(norm([gd[0]*slope-micro[0],gd[1]*slope-micro[1],1]))),v=norm(world([-x,-y,5])),r=sub(mul(n,2*dot(n,v)),v),t=world([1,0,0]),neutral=.015+.78*reflection(r,t,5);
-  return [.650,.530,.460].map(w=>neutral+.78*o.diffraction*.5*(order(r,n,t,w,1,5)+order(r,n,t,w,-1,5)));
- };
- return {...functions,reflection,order,shade};
+ const model=opticalModel(source,language,options);
+ return {...model,shade:(pose,x,y)=>model.shade({pose,x,y}).radiance};
 }
 
 test('typed defaults and clamping are finite, independent and immutable at the public root',()=>{
@@ -131,12 +102,19 @@ test('changing recovery speed preserves state, frame cache and direct device res
  assert.notDeepEqual(Array.from(r.sample(new Float32Array(attitude([50,20,0])),101*16,10)),Array.from(other.sample(raw,101*16,10)));
 });
 test('live tuning uses refs and uniform uploads, never effect dependencies or shared foil configuration',()=>{
- assert.match(componentSource,/mirrorTuning.current=normalizeMirrorOptions\(mirrorOptions\)/);
+ assert.match(componentSource,/mirrorTuning.current=normalizeOpticalOptions\(\{\.\.\.mirrorOptions,\.\.\.opticalOptions\}\)/);
  assert.match(componentSource,/mirrorRecovery.current!\.sample\(motion.matrix.current,now,mirrorTuning.current.recoverySeconds\)/);
- assert.match(componentSource,/mirrorOptions:\(\)=>mirrorTuning.current/);
+ assert.match(componentSource,/opticalOptions:\(\)=>mirrorTuning.current/);
  assert.match(componentSource,/gl.uniform4f\(uma,mt.diffraction,mt.rainbowSpacing,mt.reflectionBlur,mt.directionality\)/);
  assert.match(componentSource,/gl.uniform4f\(umb,mt.bubbles,mt.scratches,mt.ridgeWidth,mt.ridgeHeight\)/);
  for(const deps of componentSource.matchAll(/\},\[([^\]]+)\]\)/g))assert.ok(!/mirrorOptions|mirrorTuning.current/.test(deps[1]));
  assert.match(componentSource,/preset.method===4\?retainFoilRecovery/);
  assert.match(componentSource,/preset.method===5\?mirrorRecovery.current!/);
+});
+test('expanded recovery endpoints are active rather than clamped to the former quarter-second and ten-second bounds',()=>{
+ const raw=new Float32Array(attitude([0,0,0]));
+ const sample=seconds=>{const r=createFoilRecovery();let result;for(let i=0;i<=60;i++)result=r.sample(raw,i*16,seconds);return Array.from(result)};
+ const difference=(a,b)=>Math.max(...a.map((v,i)=>Math.abs(v-b[i])));
+ assert.ok(difference(sample(.1),sample(.25))>.01);
+ assert.ok(difference(sample(10),sample(30))>.01);
 });

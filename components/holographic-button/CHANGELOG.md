@@ -2,6 +2,22 @@
 
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/) and Semantic Versioning.
 
+## 1.0.0-preview.15 — 2026-10-09 (unpublished)
+
+### Changed
+
+- Replace preview-only material switches with four numeric presets of the same parameterized reflective shader.
+- Preserve Satin Mirror's accepted default; keep legacy material variants and nine-field mirror options compatible.
+- Expand supported ranges with log/cubic UI mappings, selected-preset reset, Satin Mirror reset and custom-state feedback.
+- Add continuous coating density, attached facet strength/density and shared grating orientation.
+- Redistribute diffraction energy, retain neutral reflection when orders cannot propagate, and preserve color with an RGB-wide SDR shoulder.
+- Soften reflected source edges at broad filter settings and keep per-instance adaptive recovery active across all preset edits.
+
+### Verification
+
+- Source-executed CPU optical references, backend equation parity, legacy helper hashes and shader validation are covered separately from physical GPU/HDR validation.
+- No npm release, tag, main merge or original-demo deployment accompanies this preview change.
+
 ## 0.1.2 — 2026-08-25
 
 ### Changed

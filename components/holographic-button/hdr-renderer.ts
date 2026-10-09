@@ -29,7 +29,7 @@
  * The browser/display still decides the actually available HDR headroom.
  */
 
-/** Live, mirror-only optical controls. Relative values of 1 preserve preview13. */
+/** Legacy mirror controls. Relative values of 1 preserve preview13. */
 export type MirrorOptions = {
   diffraction: number;
   rainbowSpacing: number;
@@ -47,11 +47,11 @@ export const DEFAULT_MIRROR_OPTIONS: Readonly<MirrorOptions> = Object.freeze({
   bubbles: 1, scratches: 1, ridgeWidth: 1, ridgeHeight: 1, recoverySeconds: 2.5,
 });
 export const MIRROR_OPTION_LIMITS: Readonly<Record<keyof MirrorOptions, readonly [number, number]>> = Object.freeze({
-  diffraction: [0, 2] as const, rainbowSpacing: [.25, 4] as const,
-  reflectionBlur: [0, 3] as const, directionality: [0, 2] as const,
-  bubbles: [0, 4] as const, scratches: [0, 4] as const,
-  ridgeWidth: [.25, 2] as const, ridgeHeight: [0, 3] as const,
-  recoverySeconds: [.25, 10] as const,
+  diffraction: [0, 8] as const, rainbowSpacing: [.25, 8] as const,
+  reflectionBlur: [0, 4] as const, directionality: [0, 4] as const,
+  bubbles: [0, 100] as const, scratches: [0, 100] as const,
+  ridgeWidth: [.15, 3.25] as const, ridgeHeight: [0, 6] as const,
+  recoverySeconds: [.1, 30] as const,
 });
 export function normalizeMirrorOptions(input?: Partial<MirrorOptions>): MirrorOptions {
   const result = { ...DEFAULT_MIRROR_OPTIONS };
@@ -62,6 +62,61 @@ export function normalizeMirrorOptions(input?: Partial<MirrorOptions>): MirrorOp
   return result;
 }
 
+/** One continuous material model; presets contain numbers, never shader modes. */
+export type OpticalOptions = MirrorOptions & {
+  /** Reflected-light coating: 0 neutral, 1 vivid, 2 high-contrast spectral color. */
+  iridescence: number;
+  /** Attached printed facets: changes micro-normal and coating phase together. */
+  facetStrength: number;
+  /** Number of square/diamond cells per face-height unit. */
+  facetScale: number;
+  /** Surface grating and grid rotation in degrees. */
+  gratingAngle: number;
+};
+export const DEFAULT_OPTICAL_OPTIONS: Readonly<OpticalOptions> = Object.freeze({
+  ...DEFAULT_MIRROR_OPTIONS, iridescence: 0, facetStrength: 0, facetScale: 12, gratingAngle: 0,
+});
+export const OPTICAL_OPTION_LIMITS: Readonly<Record<keyof OpticalOptions, readonly [number, number]>> = Object.freeze({
+  ...MIRROR_OPTION_LIMITS, iridescence: [0, 2] as const, facetStrength: [0, 1] as const,
+  facetScale: [2, 48] as const, gratingAngle: [-90, 90] as const,
+});
+export function normalizeOpticalOptions(input?: Partial<OpticalOptions>): OpticalOptions {
+  const result = { ...DEFAULT_OPTICAL_OPTIONS };
+  for (const key of Object.keys(result) as (keyof OpticalOptions)[]) {
+    const value = input?.[key], [min, max] = OPTICAL_OPTION_LIMITS[key];
+    if (typeof value === "number" && Number.isFinite(value)) result[key] = Math.min(max, Math.max(min, value));
+  }
+  return result;
+}
+export type OpticalPresetId = "satin-mirror" | "card-foil" | "grid-prism" | "smooth-prism";
+export type OpticalPreset = Readonly<{id: OpticalPresetId; label: string; note: string; options: Readonly<OpticalOptions>; specular: number}>;
+const opticalPreset = (id: OpticalPresetId, label: string, note: string, input: Partial<OpticalOptions>, specular = 5): OpticalPreset =>
+  Object.freeze({ id, label, note, options: Object.freeze(normalizeOpticalOptions(input)), specular });
+export const OPTICAL_PRESETS: readonly OpticalPreset[] = Object.freeze([
+  opticalPreset("satin-mirror", "Satin Mirror", "프리뷰 13의 부드러운 회색 거울", {}),
+  opticalPreset("card-foil", "Card Foil", "포켓몬 카드에서 영감받은 파스텔 포일", { iridescence: .75, diffraction: 1.4, rainbowSpacing: .8, reflectionBlur: .35, directionality: .4, facetStrength: .14, facetScale: 18, gratingAngle: 45, bubbles: 0, scratches: 0 }),
+  opticalPreset("grid-prism", "Grid Prism", "각진 셀마다 갈라지는 선명한 스펙트럼", { iridescence: 1.1, diffraction: .5, rainbowSpacing: .6, reflectionBlur: .18, directionality: 1.6, facetStrength: .23, facetScale: 7, gratingAngle: 0, bubbles: 0, scratches: 0 }),
+  opticalPreset("smooth-prism", "Smooth Prism", "매끈한 표면 위의 넓은 색 반사", { iridescence: 1, diffraction: .8, rainbowSpacing: 1.65, reflectionBlur: .06, directionality: 0, facetStrength: 0, bubbles: 0, scratches: 0 }),
+]);
+export type OpticalControl = Readonly<{key: keyof OpticalOptions; label: string; min: number; max: number; step: number; unit?: string; scale?: "log" | "power"; group: "surface" | "pattern" | "motion"; hint: string}>;
+const control = (key: keyof OpticalOptions, label: string, group: OpticalControl["group"], step: number, hint: string, extra: Pick<OpticalControl, "unit" | "scale"> = {}): OpticalControl =>
+  Object.freeze({ key, label, group, step, hint, min: OPTICAL_OPTION_LIMITS[key][0], max: OPTICAL_OPTION_LIMITS[key][1], ...extra });
+export const OPTICAL_CONTROLS: readonly OpticalControl[] = Object.freeze([
+  control("iridescence", "색 코팅", "pattern", .02, "0은 무채색, 1은 선명한 색, 2는 강한 색 대비"),
+  control("diffraction", "회절 강도", "pattern", .05, "거울 반사를 파장별 회절로 옮겨. 밝기만 더하지 않아"),
+  control("rainbowSpacing", "회절 격자 간격", "pattern", .01, "작을수록 촘촘한 코팅 색. 아주 작은 간격은 회절 차수가 사라질 수 있어", {scale:"log"}),
+  control("gratingAngle", "격자 방향", "pattern", 1, "회절, 반사 블러 방향과 셀을 함께 회전해", {unit:"°"}),
+  control("facetStrength", "격자 요철", "pattern", .01, "0은 매끈한 면. 올리면 각 셀의 반사와 색이 갈라져"),
+  control("facetScale", "격자 밀도", "pattern", .1, "버튼 높이당 셀 개수. 방향 45°에서 다이아몬드", {scale:"log",unit:" cells"}),
+  control("reflectionBlur", "반사 블러", "surface", .02, "0은 또렷한 반사. 높은 값은 넓게 퍼진 반사"),
+  control("directionality", "블러 방향성", "surface", .05, "0은 균일한 블러. 높을수록 한 방향으로 길어져"),
+  control("bubbles", "미세 기포", "surface", .1, "1은 원래 미세 기포, 100은 뚜렷하게 부푼 표면", {scale:"power"}),
+  control("scratches", "미세 흠집", "surface", .1, "1은 원래 미세 흠집, 100은 깊은 홈", {scale:"power"}),
+  control("ridgeWidth", "테두리 요철 폭", "surface", .01, "원래 둥근 테두리의 폭. 중앙 평면은 유지돼", {scale:"log"}),
+  control("ridgeHeight", "테두리 돌출 높이", "surface", .05, "0은 평평한 테두리. 높이면 반사각이 크게 바뀌어"),
+  control("recoverySeconds", "각도 회복 시간", "motion", .01, "작을수록 빠르게 빛을 되찾아. 기기 움직임은 즉시 반영돼", {scale:"log",unit:"s"}),
+]);
+
 export const originalHdrShader = /* wgsl */ `
 struct Uniforms {
   worldFromDevice: mat4x4f,
@@ -70,6 +125,7 @@ struct Uniforms {
   settings: vec4f,
   mirrorA: vec4f, // diffraction, grating spacing, blur, directionality
   mirrorB: vec4f, // bubbles, scratches, ridge width, ridge height
+  opticalC: vec4f, // coating density, facets, cells/height, grating angle (radians)
 };
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -315,6 +371,25 @@ fn mirrorReflection(r: vec3f, tangent: vec3f, intensity: f32) -> f32 {
  return total;
 }
 
+// Footprint-aware source edges suppress repeated windows at wide filter settings.
+fn opticalRect(x: f32, y: f32, cx: f32, cy: f32, hx: f32, hy: f32, softness: f32) -> f32 {
+ return (1. - smoothstep(hx - .10 - softness, hx + .10 + softness, abs(x - cx))) * (1. - smoothstep(hy - .035 - softness, hy + .035 + softness, abs(y - cy)));
+}
+fn opticalRoom(horizontal: f32, vertical: f32, forward: f32, intensity: f32, softness: f32) -> f32 {
+let z = max(abs(forward), .08);
+let x = horizontal / z; let y = vertical / z;
+let wall = .18 + .16 * smoothstep(-.6, .7, y);
+let floorBand = 1. - smoothstep(-.48 - softness, -.40 + softness, y);
+let cabinet = opticalRect(x, y, -.68, -.12, .24, .48, softness);
+let panel = opticalRect(x, y, .73, .02, .17, .68, softness);
+let window = opticalRect(x, y, -.24, .17, .34, .24, softness);
+let mullion = (1. - smoothstep(.012 - softness, .105 + softness, abs(x + .24))) + (1. - smoothstep(.018 - softness, .048 + softness, abs(y - .17)));
+let panes = window * max(0., 1. - mullion);
+let room = wall * (1. - .52 * floorBand) - .12 * cabinet - .11 * panel + .21 * window;
+let front = smoothstep(-.1, .25, forward);
+return max(.035, room) + front * panes * (1.6 * max(intensity, 0.) / (1. + .16 * max(intensity, 0.)));
+}
+
 // Tuned paths retain the original helper verbatim at preview13 defaults.
 fn mirrorRim(inward: f32) -> vec2f {
  if (u.mirrorB.z == 1. && u.mirrorB.w == 1.) { return rimProfile(inward); }
@@ -338,32 +413,77 @@ fn mirrorTunedReflection(r: vec3f, tangent: vec3f, intensity: f32) -> f32 {
  let t = projected / max(length(projected), .00001); let b = cross(r, t);
  // Match angular variance at zero directionality (the two kernel axes have different weights).
  let transverse = mix(.15556349186, .009, min(u.mirrorA.w, 1.)) / max(u.mirrorA.w, 1.);
+ let stretch = sqrt(max(u.mirrorA.w, 1.));
+ let softness = .11 * max(0., u.mirrorA.z * stretch - 1.);
  var total = 0.;
  for (var ix: i32 = -2; ix <= 2; ix++) { for (var iy: i32 = -1; iy <= 1; iy++) {
   let x = f32(ix); let y = f32(iy);
-  let ray = normalize(r + t * (x * .11 * u.mirrorA.z) + b * (y * transverse * u.mirrorA.z));
-  let radiance = mirrorRoom(dot(ray, vec3f(.997884910,-.011350451,-.064006826)), dot(ray, vec3f(.062139647,.455690748,.887966557)), dot(ray, vec3f(.019088498,-.890065790,.455432235)), intensity);
+  let ray = normalize(r + t * (x * .11 * u.mirrorA.z * stretch) + b * (y * transverse * u.mirrorA.z));
+  let radiance = opticalRoom(dot(ray, vec3f(.997884910,-.011350451,-.064006826)), dot(ray, vec3f(.062139647,.455690748,.887966557)), dot(ray, vec3f(.019088498,-.890065790,.455432235)), intensity, softness);
   total += radiance * mirrorWeight(x) * (2. - abs(y)) / 64.;
  }}
  return total;
 }
 // Tangential grating equation: kIncident_parallel = kSpecular_parallel + m*lambda/d*g.
-// Reconstruct the normal component, rejecting non-propagating orders. Wavelengths
+// Reconstruct the normal component; non-propagating energy stays in zero order. Wavelengths
 // and pitch are in micrometers. The same room, normal, viewer and surface tangent
 // supply neutral and colored reflections; there is no UV rainbow overlay.
-fn mirrorOrder(r: vec3f, n: vec3f, tangent: vec3f, wavelength: f32, order: f32, intensity: f32) -> f32 {
+fn mirrorOrder(r: vec3f, n: vec3f, tangent: vec3f, wavelength: f32, order: f32, intensity: f32, neutral: f32) -> f32 {
  let g = normalize(tangent - n * dot(tangent, n));
  let parallelRay = r - n * dot(r, n) + g * (order * wavelength / (1.2 * u.mirrorA.y));
  let q = dot(parallelRay, parallelRay);
- if (q >= 1.) { return 0.; }
+ if (q >= 1.) { return neutral; }
  let ray = parallelRay + n * sqrt(max(0., 1. - q));
  let visibility = smoothstep(0., .08, 1. - q);
- return mirrorTunedReflection(ray, tangent, intensity) * visibility;
+ return mix(neutral, mirrorTunedReflection(ray, tangent, intensity), visibility);
 }
-fn mirrorDiffraction(r: vec3f, n: vec3f, tangent: vec3f, intensity: f32) -> vec3f {
- let positive = vec3f(mirrorOrder(r,n,tangent,.650,1.,intensity), mirrorOrder(r,n,tangent,.530,1.,intensity), mirrorOrder(r,n,tangent,.460,1.,intensity));
- let negative = vec3f(mirrorOrder(r,n,tangent,.650,-1.,intensity), mirrorOrder(r,n,tangent,.530,-1.,intensity), mirrorOrder(r,n,tangent,.460,-1.,intensity));
+fn mirrorDiffraction(r: vec3f, n: vec3f, tangent: vec3f, intensity: f32, neutral: f32) -> vec3f {
+ let positive = vec3f(mirrorOrder(r,n,tangent,.650,1.,intensity,neutral), mirrorOrder(r,n,tangent,.530,1.,intensity,neutral), mirrorOrder(r,n,tangent,.460,1.,intensity,neutral));
+ let negative = vec3f(mirrorOrder(r,n,tangent,.650,-1.,intensity,neutral), mirrorOrder(r,n,tangent,.530,-1.,intensity,neutral), mirrorOrder(r,n,tangent,.460,-1.,intensity,neutral));
  return .5 * (positive + negative);
+}
+
+// Continuous surface parameters only. No preset identifier reaches the shader.
+fn opticalGrid(x: f32, y: f32) -> vec3f {
+ let c = cos(u.opticalC.w); let s = sin(u.opticalC.w);
+ let qx = (c * x - s * y) * u.opticalC.z;
+ let qy = (s * x + c * y) * u.opticalC.z;
+ let cx = floor(qx); let cy = floor(qy);
+ let fx = fract(qx); let fy = fract(qy);
+ let footprint = clamp(u.opticalC.z / max(u.material.y, 1.), .005, .24);
+ let edge = min(min(fx, 1. - fx), min(fy, 1. - fy));
+ let fade = smoothstep(0., footprint, edge);
+ let a = hash(vec2f(cx, cy)); let b = hash(vec2f(cx + 7.31, cy + 7.31));
+ let nx = (a - .5) * .32 * u.opticalC.y * fade;
+ let ny = (b - .5) * .32 * u.opticalC.y * fade;
+ return vec3f(c * nx + s * ny, -s * nx + c * ny, (a - .5) * .6 * u.opticalC.y);
+}
+fn opticalCoatingChannel(horizontal: f32, vertical: f32, cellPhase: f32, offset: f32) -> f32 {
+ let axis = horizontal * cos(u.opticalC.w) + vertical * sin(u.opticalC.w);
+ // Stylized thin-film carrier: shared pitch controls angular color frequency.
+ // Density stays active throughout 0..2, rather than clamping a blend at one.
+ let phase = axis * (1.2 / u.mirrorA.y) + .15 + cellPhase;
+ let color = pow(.5 + .5 * cos(6.28318 * (phase + offset)), 1.35);
+ return exp(-2. * u.opticalC.x * (1. - color)) * (1. + .25 * u.opticalC.x);
+}
+fn opticalCoating(r: vec3f, cellPhase: f32) -> vec3f {
+ let horizontal = dot(r, vec3f(.997884910,-.011350451,-.064006826));
+ let vertical = dot(r, vec3f(.062139647,.455690748,.887966557));
+ let axis = horizontal * cos(u.opticalC.w) + vertical * sin(u.opticalC.w);
+ // Artistic thin-film carrier, not a measured multilayer interference solution.
+ return vec3f(opticalCoatingChannel(horizontal, vertical, cellPhase, 0.), opticalCoatingChannel(horizontal, vertical, cellPhase, .67), opticalCoatingChannel(horizontal, vertical, cellPhase, .33));
+}
+fn opticalRadiance(r: vec3f, n: vec3f, tangent: vec3f, cellPhase: f32, intensity: f32) -> vec3f {
+ let neutral = .015 + .78 * mirrorTunedReflection(r, tangent, intensity);
+ var color = vec3f(neutral);
+ if (u.mirrorA.x > 0.) {
+  // Transfer zero-order energy rather than piling gray-bearing orders on top.
+  let efficiency = u.mirrorA.x / (1. + u.mirrorA.x);
+  let diffracted = vec3f(.015) + .78 * mirrorDiffraction(r, n, tangent, intensity, (neutral - .015) / .78);
+  color = mix(color, diffracted, efficiency);
+ }
+ if (u.opticalC.x > 0.) { color *= opticalCoating(r, cellPhase); }
+ return color;
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -387,17 +507,15 @@ fn mirrorDiffraction(r: vec3f, n: vec3f, tangent: vec3f, intensity: f32) -> vec3
   if (method > 4.5) {
     if (al < .01) { return vec4f(0.); }
     let rim = mirrorRim(inward);
+    var grid = vec3f(0.);
+    if (u.opticalC.y > 0.) { grid = opticalGrid(p.x, p.y); }
     let micro = vec2f(mirrorTunedHeight(p.x + .0005, p.y) - mirrorTunedHeight(p.x - .0005, p.y), mirrorTunedHeight(p.x, p.y + .0005) - mirrorTunedHeight(p.x, p.y - .0005)) / .001;
-    let n = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y - micro, 1.)), 0.)).xyz);
+    let n = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y - micro + grid.xy, 1.)), 0.)).xyz);
     let v = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
     let r = reflect(-v, n);
-    let t = normalize((u.worldFromDevice * vec4f(1., 0., 0., 0.)).xyz);
-    let linear = .015 + .78 * mirrorTunedReflection(r, t, specularIntensity);
-    if (u.mirrorA.x > 0.) {
-      let color = vec3f(linear) + .78 * u.mirrorA.x * mirrorDiffraction(r, n, t, specularIntensity);
-      return vec4f(vec3f(stickerEncode(color.r), stickerEncode(color.g), stickerEncode(color.b)) * al, al);
-    }
-    return vec4f(vec3f(stickerEncode(linear)) * al, al);
+    let t = normalize((u.worldFromDevice * vec4f(cos(u.opticalC.w), sin(u.opticalC.w), 0., 0.)).xyz);
+    let color = opticalRadiance(r, n, t, grid.z, specularIntensity);
+    return vec4f(vec3f(stickerEncode(color.r), stickerEncode(color.g), stickerEncode(color.b)) * al, al);
   }
   // Isolated fifth texture retains preview11's complete color path.
   if (method > 3.5) {
@@ -505,6 +623,7 @@ export type OriginalHdrOptions = {
   material: readonly number[];
   specular: () => number;
   mirrorOptions?: () => Partial<MirrorOptions>;
+  opticalOptions?: () => Partial<OpticalOptions>;
   error: (message: string) => void;
 };
 
@@ -607,15 +726,15 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
       primitive: { topology: "triangle-list" },
     });
     if (stopped) throw new Error(failureMessage);
-    // mat4 (64 bytes), material/settings (32), two mirror option vec4s (32).
+    // mat4 (64 bytes), material/settings (32), three optical option vec4s (48).
     // WebGPU's normative usage bits: UNIFORM=0x40, COPY_DST=0x08.
-    buffer = device.createBuffer({ size: 128, usage: 0x40 | 0x08 });
+    buffer = device.createBuffer({ size: 144, usage: 0x40 | 0x08 });
     const group = device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer } }] });
     const validation = await device.popErrorScope();
     scopeOpen = false;
     if (validation) throw new Error(validation.message);
     if (stopped) throw new Error(failureMessage);
-    const values = new Float32Array(32);
+    const values = new Float32Array(36);
     values.set(options.material.slice(0, 4), 16);
     const frame = (now: number = performance.now()) => {
       if (stopped) return;
@@ -626,14 +745,15 @@ async function initialize(canvas: HTMLCanvasElement, options: OriginalHdrOptions
           const width = Math.max(1, Math.round(rect.width * dpr));
           const height = Math.max(1, Math.round(rect.height * dpr));
           if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-          if (options.method === 4) values.set([Math.max(rect.width, 1), Math.max(rect.height, 1), 0, 0], 16);
+          if (options.method >= 4) values.set([Math.max(rect.width, 1), Math.max(rect.height, 1), 0, 0], 16);
           const m = options.matrix(now);
           values.set([m[0], m[1], m[2], 0, m[3], m[4], m[5], 0, m[6], m[7], m[8], 0, 0, 0, 0, 1]);
           const intensity = options.specular();
           values.set([width, height, options.method, Number.isFinite(intensity) ? Math.max(0, intensity) : 0], 20);
-          const mirror = normalizeMirrorOptions(options.mirrorOptions?.());
+          const mirror = normalizeOpticalOptions({ ...options.mirrorOptions?.(), ...options.opticalOptions?.() });
           values.set([mirror.diffraction, mirror.rainbowSpacing, mirror.reflectionBlur, mirror.directionality,
-            mirror.bubbles, mirror.scratches, mirror.ridgeWidth, mirror.ridgeHeight], 24);
+            mirror.bubbles, mirror.scratches, mirror.ridgeWidth, mirror.ridgeHeight,
+            mirror.iridescence, mirror.facetStrength, mirror.facetScale, mirror.gratingAngle * Math.PI / 180], 24);
           device.queue.writeBuffer(buffer!, 0, values);
           const encoder = device.createCommandEncoder();
           const pass = encoder.beginRenderPass({ colorAttachments: [{
