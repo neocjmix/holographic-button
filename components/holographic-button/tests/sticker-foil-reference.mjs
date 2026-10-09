@@ -33,7 +33,7 @@ export function scalarFunction(shader,signature,parameters,bindings={}) {
  return new Function(...Object.keys(bound),...parameters,body).bind(null,...Object.values(bound));
 }
 const functionParameters={
- stickerChroma:['channel','peak'],stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
+ stickerRandom:['x','y'],stickerNoise:['x','y'],stickerDiamond:['x','y','aspect'],
  stickerPhase:['position','transform'],stickerMotion:['axis'],
  stickerChannel:['channel','x','y','tx','ty','width','height','base'],
  stickerSoftbox:['horizontal','vertical','forward'],stickerReflection:['horizontal','vertical','forward','x','y','aspect'],stickerDecode:['c'],stickerEncode:['c'],stickerLinear:['base','highlight','substrate','headroom'],stickerHighlight:['coverage','intensity'],stickerSubstrate:['x','y','aspect'],stickerSdr:['base','highlight','substrate','peak'],
@@ -74,7 +74,7 @@ export function sourceModel(shader,language) {
    const opticalFrame=lightBasis.map(axis=>dot(reflected,axis));
    const opticalTilt=opticalFrame.slice(0,2).map(model.stickerMotion);
    const sourceTexture=[0,1,2].map(c=>model.stickerChannel(c,...uv,...opticalTilt,width,height,1));
-   const base=sourceTexture.map(c=>model.stickerChroma(c,Math.max(...sourceTexture)));
+   const base=sourceTexture;
    const coverage=model.stickerReflection(...opticalFrame,...uv,aspect);
    const highlight=model.stickerHighlight(coverage,intensity),substrate=model.stickerSubstrate(...uv,aspect);
    const color=base.map(c=>model.stickerSdr(c,highlight,substrate,Math.max(...base)));

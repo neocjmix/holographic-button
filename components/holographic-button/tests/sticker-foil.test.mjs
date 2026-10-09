@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {glsl,wgsl,bodyOf,models,samples,luminance,decode,attitude,upstream,dot} from './sticker-foil-reference.mjs';
@@ -116,28 +117,17 @@ test('upper HDR intensity increases colored reflection substantially',()=>{
  assert.ok(means[1]>means[0]*1.8);assert.ok(means[2]>means[1]*1.3);
 });
 
-test('post-texture chroma increases saturation, preserves the spectral peak and leaves neutral input neutral',()=>{
- for(const [,m]of models){
-  for(const rgb of [[.7,.9,1.2],[1.3,.8,.6],[.5,.6,.4],[1,1,1]]){
-   const peak=Math.max(...rgb),enhanced=rgb.map(c=>m.stickerChroma(c,peak));
-   assert.equal(Math.max(...enhanced),peak);
-   assert.ok(enhanced.every(c=>Number.isFinite(c)&&c>=0&&c<=peak));
-   if(chroma(rgb)>0)assert.ok(chroma(enhanced)>chroma(rgb)*1.5);
-   else assert.deepEqual(enhanced,rgb);
-  }
-  const ss=samples(m,{pose:[62.9,1.1,0],intensity:5},121,33);
-  const original=ss.map(s=>s.sourceTexture.map(c=>m.stickerSdr(c,s.highlight,s.substrate,Math.max(...s.sourceTexture))));
-  assert.ok(average(ss.map(s=>chroma(s.color)))>average(original.map(chroma))*1.9);
-  assert.ok(ss.every(s=>s.color.every(c=>Number.isFinite(c)&&c>=0&&c<1)));
-  assert.ok(ss.filter(s=>chroma(s.color)<.1).length<original.filter(c=>chroma(c)<.1).length);
+test('preview11 complete foil color path is restored without post-texture chroma',()=>{
+ for(const [language,m] of models){
+  assert.ok(!(language==='GLSL'?glsl:wgsl).includes('stickerChroma'));
+  for(const s of samples(m,{pose:[62.9,1.1,0],intensity:5},41,13))assert.deepEqual(s.base,s.sourceTexture);
+ }
+ const m=models[1][1];
+ for(const base of [.1,.6,1.2])for(const intensity of [0,1,5,10]){
+  assert.equal(m.stickerHdr(base,intensity,.8,.94),m.stickerEncode(m.stickerLinear(base,.8,.94,.5*11*intensity/(10+intensity))));
  }
 });
-test('strength-five HDR peak exceeds preview11 while remaining carried by saturated spectral color',()=>{
- const m=models[1][1],ss=samples(m,{pose:[62.9,1.1,0],intensity:5},121,33);
- const peak12=Math.max(...ss.flatMap(s=>s.hdrColor.map(decode)));
- // Preview11 used the same source peak and .5 * strength headroom.
- const peak11=Math.max(...ss.flatMap(s=>s.sourceTexture.map(c=>m.stickerLinear(c,s.highlight,s.substrate,.5*(11*5/(10+5))))));
- assert.ok(peak12>peak11*1.5);
- const bright=ss.filter(s=>Math.max(...s.hdrColor.map(decode))>peak12*.9);
- assert.ok(bright.length>0);assert.ok(average(bright.map(s=>chroma(s.hdrColor)/Math.max(...s.hdrColor)))>.4);
-});
+
+// Verified preview11 commit c5e0406e9045f358f750871714bd9db34dfe526e
+const preview11Hashes={"stickerRandom": "3aeb223f247db278ea38257dceeb1958c130e87269a3ff84c04172c6ac8052a1", "stickerNoise": "23232ba88f32bb08e77a31684203709cd0abcf3b969e671bc5a5fc3e0a30a3b1", "stickerDiamond": "0c3743cdea9db50836f5075e03150fb3a46083e6dcd93911946a0f36dd4e0ace", "stickerPhase": "e841221b8f31865e2b0a912b765ea97382760f1829e857347cc1dad8e711f93a", "stickerMotion": "e4e6498a68a91cb4dbc29309816c1fc99384cd19d332631764a9be09a6543e47", "stickerChannel": "51378f90317392b8a4a94db85be8178d91a9e44cf1fe65d4ae436fb35f38d163", "stickerSoftbox": "60dd41916cca1cd308205c801049778f5eda2feef9becb6877fa06c566491c5f", "stickerReflection": "598f844fcdbff17f6711496cc69634f854641e4d537ec0da361273a40d93af3f", "stickerHighlight": "fc99dc8c8f8268aa1ee9f545459b20a95e401893eb3ec2c07f177abd30da9280", "stickerSubstrate": "f42f6c966fbf58a7fe78442c28d635c20f2c259107fe258af1084b0ef7c95205", "stickerDecode": "cd7875c4ea1d15f1d056bfc18403bacbecfc92570d6ba7b1a9f0225521724794", "stickerEncode": "846068142c0f841ce5a4a0bf8b226100f527750c1df1439c4ade561766af122d", "stickerLinear": "9769f1606fda66333d97eca3990d6e4c060b9755ef03e646bf8aa631a1b25db6", "stickerSdr": "700d49a93e832e93098ee2c557fca60c047ae814292db20feea9c052464bb7a4", "stickerHdr": "18556f60067ffb51589c4cc2295665442ae04f330f5f6ea4d800599d58aa27f0"};
+test('every WGSL foil function exactly matches verified preview11',()=>{for(const [name,expected] of Object.entries(preview11Hashes)){const fn=wgsl.match(new RegExp('fn '+name+'\\([\\s\\S]*?\\n}'))[0];assert.equal(createHash('sha256').update(fn.replace(/\s+/g,'')).digest('hex'),expected,name)}});

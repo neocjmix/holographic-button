@@ -1,4 +1,4 @@
-/** Foil-only adaptive light frame. Device motion is never smoothed or rewritten.
+/** Foil and mirror adaptive light frame. Device motion is never smoothed or rewritten.
  * A bounded unit-quaternion light correction follows the current attitude over
  * seconds; C * device therefore responds immediately, then settles into the
  * centered colored emitter. No Euler headings, accumulated turns or timers.

@@ -1,4 +1,4 @@
-> v1.0.0-preview.12: isolated HDR preview, not published to npm. Sticker Foil adds richer colored HDR and slowly recovering illumination to its coupled rainbow reflection. All five materials share a fuller rounded inset rim. The source texture, native interaction and original four color models are preserved. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
+> v1.0.0-preview.13: isolated HDR preview, not published to npm. Sticker Foil restores its preview.11 color treatment while retaining adaptive lighting. New Satin Mirror adds an anisotropically blurred procedural environment reflection with subtle surface defects. All six share a rounded inset ridge twice the preview.12 width and height. See [preview notes](../../preview/v1/README.md) and THIRD_PARTY_NOTICES.md for details.
 
 # @neocjmix/holographic-button
 
@@ -11,7 +11,7 @@ A physically directed holographic WebGL button for React. Its reflective surface
 
 ## Features
 
-- Four optical models plus a separate reference-derived Sticker Foil preset.
+- Four original optical models, reference-derived Sticker Foil, and a separate Satin Mirror preset.
 - World-fixed specular lighting and a smoothly raised inset reflective rim.
 - Device orientation, motion fallback, screen rotation correction, and pointer fallback.
 - A real `<button>` with native events, form props, accessibility attributes, and DOM refs.
@@ -84,7 +84,7 @@ The returned object includes `telemetry` when reactive diagnostics are enabled. 
 
 Every native button prop is forwarded: `onClick`, all other `on*` handlers, `disabled`, `type`, `name`, `value`, `form`, `aria-*`, `data-*`, `className`, `style`, and `ref`. The default `type` is `button` to avoid accidental form submission. Plain text inherits the default black label treatment; `children` remains a `ReactNode`, so styled JSX, icons, and custom label structures can provide their own colors.
 
-The broad, neutral metal specular preset is part of the material design rather than a public collection of tuning knobs. Set `specular={false}` to remove its direct environment-light lobes and rim glints while retaining the holographic base material. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and the smooth inset rim. The macro face and outermost edge are flat; the prior glass-like top-coat highlight has been replaced by a broad metal response. The numeric strength is uploaded on the existing animation loop, so moving the slider does not recreate the renderer. Boolean true/false remain compatible with 1/0. Negative strengths clamp to zero; non-finite values use 1.
+The broad, neutral metal specular preset is part of the material design rather than a public collection of tuning knobs. For the original four materials, `specular={false}` removes the direct environment-light lobes and rim glints while retaining the holographic base material. Sticker Foil instead settles to its neutral substrate when reflected intensity is zero. The highlight uses the same perturbed normal as each optical material, including prism facets, microtexture, and the smooth inset rim. The macro face and outermost edge are flat; the prior glass-like top-coat highlight has been replaced by a broad metal response. The numeric strength is uploaded on the existing animation loop, so moving the slider does not recreate the renderer. Boolean true/false remain compatible with 1/0. Negative strengths clamp to zero; non-finite values use 1.
 
 The internal preset is informed by common PBR material concepts but uses a compact custom WebGL 1 approximation rather than claiming glTF conformance.
 
@@ -133,3 +133,7 @@ Visual direction inspired by [Lucia Scarlet’s holographic controls](https://x.
 ## License
 
 [MIT](./LICENSE) © 2026 ChanJin Park
+
+### Satin Mirror
+
+Use `variant="satin-mirror"` for a neutral mirror with an original procedural room environment, anisotropic reflection blur, and subtle surface-attached bubbles and scratches. It shares the rounded inset rim and adaptive light recovery with Sticker Foil. Its HDR response extends the same reflected environment; no external texture fetch is required.

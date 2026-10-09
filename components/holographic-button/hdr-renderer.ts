@@ -9,8 +9,9 @@
  * Preview.11 couples foil phase and colored radiance to one reflected-light frame.
  * The source curve/pattern and 20% softened gain remain; gravity-only phase and
  * the separate white overlay are removed. This is a stylized optical response.
- * Preview.12 deepens post-texture chroma and colored HDR headroom, widens the
- * shared C2 rim, and uses a shared foil-only adaptive light-frame correction.
+ * Preview.13 restores preview11 foil color, doubles the preview12 C2 rim, and
+ * adds a neutral satin mirror with an original room map and anisotropic filtering.
+ * Foil and mirror share the preview12 adaptive light frame.
  * SDR uses an RGB-wide shoulder; HDR extends the same colored reflection.
  * HDR presentation:
  *   C = (M / (M + 0.78)) ^ 0.86       original, display-encoded artistic curve
@@ -84,11 +85,11 @@ fn ggxAniso(n: vec3f, h: vec3f, t0: vec3f, r: f32, a: f32, rot: f32) -> f32 {
 // A wider, taller positive bead with C2 joins to flat outer land and center.
 // Its analytic inward derivative controls the normal; height adds no brightness.
 fn rimProfile(inward: f32) -> vec2f {
-  let t = (inward - .018) / .064;
+  let t = (inward - .018) / .128;
   if (t <= 0. || t >= 1.) { return vec2f(0.); }
   let q = 1. - t;
-  return vec2f(64. * .0016 * t * t * t * q * q * q,
-               (192. * .0016 / .064) * t * t * q * q * (1. - 2. * t));
+  return vec2f(64. * .0032 * t * t * t * q * q * q,
+               (192. * .0032 / .128) * t * t * q * q * (1. - 2. * t));
 }
 // Virtual viewer at (0,0,5) in device coordinates, five face-height units away.
 // This artistic optical perspective restores a reflected color sweep on a flat
@@ -220,10 +221,6 @@ fn stickerEncode(c: f32) -> f32 {
   return 1.055 * pow(c, 1. / 2.4) - .055;
 }
 // Both canvases receive encoded values; compose reflected light in linear space.
-// Peak-preserving chroma applied after the untouched source texture.
-fn stickerChroma(channel: f32, peak: f32) -> f32 {
-  return peak * pow(max(channel, 0.) / max(peak, .00001), 3.2);
-}
 fn stickerLinear(base: f32, highlight: f32, substrate: f32, headroom: f32) -> f32 {
   // Dim neutral environment plus one colored reflection; no white highlight layer.
   return .055 * stickerDecode(substrate) + stickerDecode(max(base, 0.)) * highlight * (.82 + headroom);
@@ -240,7 +237,47 @@ fn stickerSdr(base: f32, highlight: f32, substrate: f32, peak: f32) -> f32 {
 
 fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 {
   let strength = 11. * max(intensity, 0.) / (10. + max(intensity, 0.));
-  return stickerEncode(stickerLinear(base, highlight, substrate, .9 * strength));
+  return stickerEncode(stickerLinear(base, highlight, substrate, .5 * strength));
+}
+
+// Original neutral room map and a bounded surface-aligned anisotropic reflection filter.
+fn mirrorRect(x: f32, y: f32, cx: f32, cy: f32, hx: f32, hy: f32) -> f32 {
+return (1. - smoothstep(hx - .10, hx + .10, abs(x - cx))) * (1. - smoothstep(hy - .035, hy + .035, abs(y - cy)));
+}
+fn mirrorRoom(horizontal: f32, vertical: f32, forward: f32, intensity: f32) -> f32 {
+let z = max(abs(forward), .08);
+let x = horizontal / z; let y = vertical / z;
+let wall = .18 + .16 * smoothstep(-.6, .7, y);
+let floorBand = 1. - smoothstep(-.48, -.40, y);
+let cabinet = mirrorRect(x, y, -.68, -.12, .24, .48);
+let panel = mirrorRect(x, y, .73, .02, .17, .68);
+let window = mirrorRect(x, y, -.24, .17, .34, .24);
+let mullion = (1. - smoothstep(.012, .105, abs(x + .24))) + (1. - smoothstep(.018, .048, abs(y - .17)));
+let panes = window * max(0., 1. - mullion);
+let room = wall * (1. - .52 * floorBand) - .12 * cabinet - .11 * panel + .21 * window;
+let front = smoothstep(-.1, .25, forward);
+return max(.035, room) + front * panes * (1.6 * max(intensity, 0.) / (1. + .16 * max(intensity, 0.)));
+}
+fn mirrorWeight(i: f32) -> f32 {
+return 6. - 2. * abs(i) - step(1.5, abs(i));
+}
+fn mirrorHeight(x: f32, y: f32) -> f32 {
+let b1 = exp(-((x + .63) * (x + .63) + (y - .12) * (y - .12)) / .0009);
+let b2 = exp(-((x - .41) * (x - .41) + (y + .20) * (y + .20)) / .0004);
+let b3 = exp(-((x - 1.13) * (x - 1.13) + (y - .03) * (y - .03)) / .000625);
+let scratch = exp(-pow((y + .08 + .12 * x) / .003, 2.)) * exp(-pow((x + .14) / .21, 4.));
+return .00010 * b1 + .00007 * b2 + .00008 * b3 - .000008 * scratch;
+}
+fn mirrorReflection(r: vec3f, tangent: vec3f, intensity: f32) -> f32 {
+ let projected = tangent - r * dot(tangent, r); let t = projected / max(length(projected), .00001); let b = cross(r, t);
+ var total = 0.;
+ for (var ix: i32 = -2; ix <= 2; ix++) { for (var iy: i32 = -1; iy <= 1; iy++) {
+  let x = f32(ix); let y = f32(iy);
+  let ray = normalize(r + t * (x * .11) + b * (y * .009));
+  let radiance = mirrorRoom(dot(ray, vec3f(.997884910,-.011350451,-.064006826)), dot(ray, vec3f(.062139647,.455690748,.887966557)), dot(ray, vec3f(.019088498,-.890065790,.455432235)), intensity);
+  total += radiance * mirrorWeight(x) * (2. - abs(y)) / 64.;
+ }}
+ return total;
 }
 
 @fragment fn fs(@builtin(position) pixel: vec4f) -> @location(0) vec4f {
@@ -260,7 +297,18 @@ fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 
   let gd = normalize(vec2f(dpdx(d), -dpdy(d)) + vec2f(.00001));
   let inward = max(-d, 0.);
   let rim = rimProfile(inward);
-  // Isolated fifth texture; all presets share the portrait specular light.
+  // Defects perturb only the sixth material's normal, never its flat macro face.
+  if (method > 4.5) {
+    if (al < .01) { return vec4f(0.); }
+    let micro = vec2f(mirrorHeight(p.x + .0005, p.y) - mirrorHeight(p.x - .0005, p.y), mirrorHeight(p.x, p.y + .0005) - mirrorHeight(p.x, p.y - .0005)) / .001;
+    let n = normalize((u.worldFromDevice * vec4f(normalize(vec3f(gd * rim.y - micro, 1.)), 0.)).xyz);
+    let v = normalize((u.worldFromDevice * vec4f(viewDirection(p), 0.)).xyz);
+    let r = reflect(-v, n);
+    let t = normalize((u.worldFromDevice * vec4f(1., 0., 0., 0.)).xyz);
+    let linear = .015 + .78 * mirrorReflection(r, t, specularIntensity);
+    return vec4f(vec3f(stickerEncode(linear)) * al, al);
+  }
+  // Isolated fifth texture retains preview11's complete color path.
   if (method > 3.5) {
     if (al < .01) { return vec4f(0.); }
     let stickerUv = vec2f(uv.x, 1. - uv.y);
@@ -270,11 +318,9 @@ fn stickerHdr(base: f32, intensity: f32, highlight: f32, substrate: f32) -> f32 
     let sr = reflect(-sv, sn);
     let opticalX = stickerMotion(dot(sr, vec3f(.997884910, -.011350451, -.064006826)));
     let opticalY = stickerMotion(dot(sr, vec3f(.062139647, .455690748, .887966557)));
-    var stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
+    let stickerBase = vec3f(stickerChannel(0., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
                              stickerChannel(1., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput),
                              stickerChannel(2., stickerUv.x, stickerUv.y, opticalX, opticalY, material.x, material.y, stickerInput));
-    let carrierPeak = max(stickerBase.r, max(stickerBase.g, stickerBase.b));
-    stickerBase = vec3f(stickerChroma(stickerBase.r, carrierPeak), stickerChroma(stickerBase.g, carrierPeak), stickerChroma(stickerBase.b, carrierPeak));
     let coverage = stickerReflection(dot(sr, vec3f(.997884910, -.011350451, -.064006826)),
                                   dot(sr, vec3f(.062139647, .455690748, .887966557)),
                                   dot(sr, vec3f(.019088498, -.890065790, .455432235)), stickerUv.x, stickerUv.y, a);

@@ -1,29 +1,31 @@
 # v1 HDR preview
 
-Version **1.0.0-preview.12** keeps the coupled colored-reflection model and adds richer chroma, stronger colored HDR, gradual light recovery and a fuller rounded rim.
+Version **1.0.0-preview.13** restores Sticker Foil's preview.11 color treatment, retains adaptive angle recovery, doubles the actual inset ridge dimensions, and adds a separate **Satin Mirror** material.
 
-## Color and reflection
+## Restored foil
 
-The rainbow remains the reflection itself. The existing source curve, checker scale 12.5 and grain remain the color carrier; a post-texture chroma adjustment reduces the washed-out appearance without replacing the pattern. Extra HDR range strengthens colored reflection instead of adding a white overlay. SDR retains a shared-RGB shoulder to avoid channel-clipping into white.
+Sticker Foil's source texture, chroma treatment and HDR response return to the verified preview.11 shader. The preview.12 extra saturation and HDR boost are removed. Angle recovery remains enabled; the enlarged shared rim is intentionally different from preview.11.
 
-## Slowly recovering light
+## Doubled rounded ridge
 
-Sensor movement still changes reflection immediately. The foil's lighting reference then adapts over time toward a calibrated colorful viewing angle, so a stationary dark pose gradually recovers instead of remaining black. This is deliberate art-directed lighting, not a claim that a physical world-fixed lamp behaves this way.
+The raised ridge itself is doubled in both dimensions relative to preview.12: normalized width **.064 → .128**, height **.0016 → .0032**. This is not a thicker CSS outline or shadow. The C2 rounded profile keeps a flat central face and flat outermost land. Scaling both dimensions equally retains its maximum slope while making the ridge wider and taller.
 
-The adaptive reference uses a 2.5-second response time, so recovery is gradual rather than a snap.
+## Satin Mirror
 
-Recovery is foil-only. The shared sensor hook and the original four materials' motion are preserved. HDR and WebGL use the same effective foil orientation; recovery must not run twice merely because both render paths are present. Timing is elapsed-time based, with bounded handling of pauses and resume.
+The sixth material starts with a neutral gray reflecting surface and an original procedural room environment, including broad windows/panels and dark structure. Environment lookup follows the reflected viewing ray; it is not a painted screen-space background.
 
-## Rounded raised rim
+Horizontal and vertical reflection blur are intentionally very different. Bright reflected sources use the same directional filtering as the rest of the environment, so the specular softness agrees with the reflection. Small surface-attached bubble and scratch deviations perturb reflection on an otherwise flat face. These imperfections belong only to Satin Mirror and do not replace existing textures.
 
-The shared inset ridge becomes wider and taller across all five materials: its normalized width grows from .038 to .064 and peak height from .00055 to .0016. Its smoothly joined profile retains a flat center and flat outermost land. No angular bevel, new CSS highlight overlay, texture replacement or general palette change is introduced.
+Satin Mirror and Sticker Foil share the gradual adaptive light reference and enlarged rim. HDR extends reflected-light range; no external environment assets, accounts, runtime fetches or new engines are required. This is a procedural environment and stylized material approximation, not a photographed room or measured surface.
 
-## Approximation and verification
+## Recovery and verification
 
-One reflected-ray/light-frame coordinate drives rainbow phase and reflected energy. This remains a stylized colored-reflection approximation, not a spectral diffraction solver, measured BSDF or full area-light integration. [Stam / GPU Gems](https://developer.nvidia.com/gpugems/gpugems/part-i-natural-effects/chapter-8-simulating-diffraction), [PBRT conductor reflection](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) and [Filament](https://google.github.io/filament/Filament.html) informed the previous optical revisions.
+Device motion still changes the reflection immediately. At rest, the light reference recovers toward its calibrated display angle using the existing 2.5-second time constant. Shared RAF timestamps avoid double adaptation, long pauses do not accrue adaptation debt, and the original four materials retain their raw motion path.
 
-CPU analytical images, deterministic recovery tests and shader compilation do not verify physical HDR appearance. The cloud browser has no GPU. Final appearance depends on the user's device and available headroom. The demo starts at strength 5 and retains the 0–10 control; component API default remains 1.
+The demo shows all six variants, with Satin Mirror selected initially. Mirror and foil samples use strength 5; the existing original-four samples retain strength 1. The playground slider remains 0–10 and the component API default remains 1.
+
+CPU analytical comparisons, deterministic tests and shader compilation are not physical GPU/HDR display validation. The cloud browser has no GPU; visual appearance and performance must still be evaluated on a device.
 
 ## Publication
 
-MIT attribution for bpisano/Sticker remains included. Both repositories are public, but npm publication guards remain enabled. No npm release, main merge, tag or original-demo replacement is authorized.
+MIT attribution for bpisano/Sticker remains included. No third-party environment image or shader code is copied for Satin Mirror. Both repositories are public, but npm publication guards remain enabled. No npm release, main merge, tag or original-demo replacement is authorized.

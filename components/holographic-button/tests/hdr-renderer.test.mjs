@@ -110,7 +110,7 @@ test('shader preserves silhouette, material branches, lighting directions and co
 test('all four texture formulas, palettes, noise and microtexture are unchanged',()=>{
  assert.equal(hash(glsl.slice(glsl.indexOf('vec3 e=env(rw,si),metal;'),glsl.indexOf('float sl=nls'))),'7b7fb1a429806318fcf65834e0c073187aed06197ee439135a3cc796e90d007e');
  assert.equal(hash(wgsl.slice(wgsl.indexOf('  if (method < .5) {'),wgsl.indexOf('  let sl = nls;'))),'bb82bfb4f66635e34776ef42ce9b4592fc2b6f8227090e2f9761259a3056f999');
- assert.equal(hash(glsl.slice(glsl.indexOf('grain=noise('),glsl.indexOf('vec3 n=normalize('))),'a34322f2368c32d9860f10b27bae8e935b167c9869baf5679ac4ec5e21bd2e41');
+ assert.equal(hash(glsl.slice(glsl.indexOf('grain=noise('),glsl.indexOf('vec3 n=normalize(',glsl.indexOf('grain=noise(')))),'a34322f2368c32d9860f10b27bae8e935b167c9869baf5679ac4ec5e21bd2e41');
  assert.equal(hash(wgsl.slice(wgsl.indexOf('  let grain ='),wgsl.indexOf('  // inward=-d'))),'8ff604af175e3c069df7697c7ec07aa85a0cacb8c7a95789787554f514f60160');
  for(const [shader,prefix] of [[glsl,'float'],[wgsl,'fn']]) {
    assert.equal(hash(functionBody(shader,`${prefix} hash(`)),prefix==='fn'?'4c0c459143feec91a2994e3d79c8cb0fd3eeea005ed40505d6669db65e6fb55d':'9264003d8773386fb9fe7582dc16a348ce9b4904775d22d3b5d4b23ecaf2c627');
@@ -149,32 +149,32 @@ function halfWidth(ggx,r) {
 }
 for(const [language,{rim,ggx,brdf}] of shaderModels) {
  test(`${language} macroscopic face and outer edge are flat, with only a shallow positive inset ridge`,()=>{
-   for(const inward of [-.1,0,.01,.018,.082,.12,.25,.465,1]) {
+   for(const inward of [-.1,0,.01,.018,.146,.2,.25,.465,1]) {
      assert.deepEqual(rim(inward),[0,0]);assert.deepEqual(normalize([rim(inward)[1],0,1]),[0,0,1]);
    }
-   assert.ok(Math.abs(rim(.05)[0]-.0016)<1e-15);assert.ok(Math.abs(rim(.05)[1])<1e-14);
+   assert.ok(Math.abs(rim(.082)[0]-.0032)<1e-15);assert.ok(Math.abs(rim(.082)[1])<1e-14);
    let maxSlope=0;
    for(let i=0;i<=1000;i++) {
-     const inward= .018+.064*i/1000,[height,slope]=rim(inward);
-     assert.ok(height>=0&&height<=.0016+1e-15);assert.ok(Number.isFinite(slope));
+     const inward= .018+.128*i/1000,[height,slope]=rim(inward);
+     assert.ok(height>=0&&height<=.0032+1e-15);assert.ok(Number.isFinite(slope));
      maxSlope=Math.max(maxSlope,Math.abs(slope));
    }
-   assert.ok(rim(.027)[1]>0);assert.ok(rim(.067)[1]<0);
+   assert.ok(rim(.027)[1]>0);assert.ok(rim(.117)[1]<0);
    const degrees=Math.atan(maxSlope)*180/Math.PI;assert.ok(degrees>4.9&&degrees<5.0);
  });
  test(`${language} ridge joins are C2 and normals use the true height derivative`,()=>{
    const epsilon=1e-6;
-   for(const endpoint of [.018,.082]) {
+   for(const endpoint of [.018,.146]) {
      const [height,slope]=rim(endpoint);assert.equal(height,0);assert.equal(slope,0);
      const finiteSlope=(rim(endpoint+epsilon)[0]-rim(endpoint-epsilon)[0])/(2*epsilon);
      const finiteCurvature=(rim(endpoint+epsilon)[1]-rim(endpoint-epsilon)[1])/(2*epsilon);
      assert.ok(Math.abs(finiteSlope)<1e-8);assert.ok(Math.abs(finiteCurvature)<.001);
    }
    for(let i=1;i<100;i++) {
-     const inward= .018+.064*i/100;
+     const inward= .018+.128*i/100;
      const finiteSlope=(rim(inward+epsilon)[0]-rim(inward-epsilon)[0])/(2*epsilon);
      assert.ok(Math.abs(finiteSlope-rim(inward)[1])<1e-8);
-     assert.ok(Math.abs(rim(inward)[0]-rim(.1-inward)[0])<1e-15);
+     assert.ok(Math.abs(rim(inward)[0]-rim(.164-inward)[0])<1e-15);
    }
  });
  test(`${language} tin-like GGX has a wider half-maximum lobe than the original roughness range`,()=>{
