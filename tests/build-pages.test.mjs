@@ -37,6 +37,8 @@ test('official demo includes all tuning styles, current presets, version, and fu
   await buildGithubPages({ outdir });
   const assets = await readAssets(outdir);
   assert.match(assets.html, /v1\.0\.0/);
+  assert.match(assets.html, /<html lang="en">/);
+  assert.doesNotMatch(assets.html, /\p{Script=Hangul}/u);
   assert.match(assets.cssBytes, /\.tuning-layout \.live-stage/);
   assert.match(assets.cssBytes, /grid-row:1;top:0/);
   assert.match(assets.jsBytes, /Card Foil/);

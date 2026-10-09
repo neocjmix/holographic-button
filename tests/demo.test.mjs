@@ -48,7 +48,7 @@ test('preset changes load complete numeric values and show custom state on optic
  assert.match(demo,/setPresetId\(id\);setOpticalOptions\(normalizeOpticalOptions\(preset.options\)\);setSpecular\(preset.specular\)/);
  assert.match(demo,/const modified=!matchesPreset\(opticalOptions,specular,currentPreset\)/);
  assert.match(demo,/aria-pressed=\{presetId===preset.id&&!modified\}/);
- assert.match(demo,/Custom \/ 수정됨/);
+ assert.match(demo,/modified\?"Custom"/);
  assert.match(demo,/onClick=\{\(\)=>applyPreset\(presetId\)\} disabled=\{!modified\}/);
  const preset={options:{diffraction:0,recoverySeconds:2.5},specular:5};
  assert.ok(matchesPreset({...preset.options},5,preset));
@@ -62,7 +62,7 @@ test('Satin Mirror reset preserves the baseline and strength five',async()=>{
  assert.match(demo,/const\[specular,setSpecular\]=useState\(5\)/);
  assert.match(demo,/useState<OpticalOptions>\(\(\)=>\(\{\.\.\.DEFAULT_OPTICAL_OPTIONS\}\)\)/);
  assert.match(demo,/setPresetId\(SATIN_PRESET.id\);setOpticalOptions\(\{\.\.\.DEFAULT_OPTICAL_OPTIONS\}\);setSpecular\(5\)/);
- assert.match(demo,/onClick=\{resetSatinMirror\}>Satin Mirror로 돌아가기/);
+ assert.match(demo,/onClick=\{resetSatinMirror\}>Back to Satin Mirror/);
  assert.match(demo,/Object\.entries\(opticalOptions\)/);
  assert.match(demo,/JSON\.stringify\(label\|\|"BUTTON"\)/);
 });
@@ -70,7 +70,7 @@ test('Satin Mirror reset preserves the baseline and strength five',async()=>{
 test('all grouped optical controls remain available and do not remount the result',async()=>{
  const demo=await readFile('app/page.tsx','utf8');
  for(const group of ['surface','pattern','motion'])assert.ok(demo.includes('id:"'+group+'"'));
- assert.match(demo,/OPTICAL_CONTROLS\.filter\(control=>control.group===group.id\)\.map/);
+ assert.match(demo,/DEMO_OPTICAL_CONTROLS\.filter\(control=>control.group===group.id\)\.map/);
  assert.match(demo,/aria-valuetext=\{formatOpticalValue\(value,control.unit\)\}/);
  assert.match(demo,/data-scale=\{logarithmic\?"log":control.scale==="power"\?"power":"linear"\}/);
  assert.match(demo,/step=\{nonlinear\?\.001:control.step\}/);
@@ -146,13 +146,14 @@ test('power sliders make zero-inclusive defect ranges controllable near their ba
 
 test('rendered demo exposes every control with correct mapping and default values',async()=>{
  const built=await build({
-  stdin:{contents:'import {renderToStaticMarkup} from "react-dom/server"; import Home from "./app/page.tsx"; export const html=renderToStaticMarkup(<Home/>); export {OPTICAL_CONTROLS,OPTICAL_PRESETS,DEFAULT_OPTICAL_OPTIONS} from "@neocjmix/holographic-button";',resolveDir:process.cwd(),loader:'tsx'},
+  stdin:{contents:'import {renderToStaticMarkup} from "react-dom/server"; import Home from "./app/page.tsx"; export const html=renderToStaticMarkup(<Home/>); export {DEFAULT_OPTICAL_OPTIONS} from "@neocjmix/holographic-button"; export {DEMO_OPTICAL_CONTROLS,DEMO_OPTICAL_PRESETS} from "./app/demo-copy.ts";',resolveDir:process.cwd(),loader:'tsx'},
   alias:{'@neocjmix/holographic-button':resolve('components/holographic-button/index.tsx')},
   bundle:true,write:false,platform:'node',format:'cjs',jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'},
  });
  const module={exports:{}};
  new Function('require','module','exports',built.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
- const {html,OPTICAL_CONTROLS:controls,OPTICAL_PRESETS:presets,DEFAULT_OPTICAL_OPTIONS:defaults}=module.exports;
+ const {html,DEMO_OPTICAL_CONTROLS:controls,DEMO_OPTICAL_PRESETS:presets,DEFAULT_OPTICAL_OPTIONS:defaults}=module.exports;
+ assert.doesNotMatch(html,/\p{Script=Hangul}/u,'all initial UI text and accessible attributes are English');
  assert.equal([...html.matchAll(/aria-pressed="true"/g)].length,1);
  assert.equal([...html.matchAll(/<button[^>]*class="holo-button"/g)].length,presets.length+2,'hero, live result and each fixed preset');
  assert.equal([...html.matchAll(/data-optical-control="/g)].length,controls.length);
@@ -167,14 +168,14 @@ test('rendered demo exposes every control with correct mapping and default value
   assert.match(field,new RegExp('aria-describedby="hint-'+control.key+'(?: |")'),control.key+' hint');
   assert.ok(html.includes(control.key+': '+defaults[control.key]+','),control.key+' exact copied value');
  }
- assert.ok(html.includes('Custom / 수정됨')===false,'initial state is unmodified');
- assert.ok(html.includes('Satin Mirror로 돌아가기'));
+ assert.doesNotMatch(html,/<b>Custom<\/b>/,'initial state is unmodified');
+ assert.ok(html.includes('Back to Satin Mirror'));
  assert.ok(html.includes('v1.0.0'));
  assert.match(html,/AI-ASSISTED IMPLEMENTATION/);
  assert.doesNotMatch(html,/NO HUMAN REVIEW|UNREVIEWED AI OUTPUT|No human has reviewed|not published to npm|프리뷰|preview\.\d/i);
- assert.equal(html.split('부드러운 회색 거울 반사').length-1,2,'Satin Mirror stable description appears in selector and gallery');
- assert.ok(html.includes('색 코팅이나 회절 강도를 올리면 간격의 차이가 보여요.'));
- assert.ok(html.includes('격자 요철을 올리면 셀 밀도의 차이가 보여요.'));
+ assert.equal(html.split('Soft gray mirror reflections').length-1,2,'Satin Mirror stable description appears in selector and gallery');
+ assert.ok(html.includes('Increase Color coating or Diffraction strength to see changes in spacing.'));
+ assert.ok(html.includes('Increase Grid relief to see changes in cell density.'));
 });
 
 test('stable demo has honest attribution without preview warnings',async()=>{const source=await readFile('app/page.tsx','utf8');assert.match(source,/AI-ASSISTED IMPLEMENTATION/);assert.match(source,/THIRD_PARTY_NOTICES\.md/);assert.doesNotMatch(source,/preview\.15|UNREVIEWED AI OUTPUT|NO HUMAN REVIEW|No human has reviewed|not published to npm|프리뷰/);});
